@@ -1,0 +1,51 @@
+[project]
+name = "emcali-corpus"
+version = "0.1.0"
+description = "Pipeline de captura y curaduría del sitio web de EMCALI para RAG."
+readme = "README.md"
+authors = [
+    { name = "Jacobo U", email = "jacobo.unzueta@uao.edu.co" },
+    { name = "Rommel Prieto", email = "rommel.prieto@uao.edu.co" },
+]
+license = "MIT"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "lxml>=6.0.0",
+    "playwright>=1.55.0",
+    "requests>=2.32.5",
+]
+
+[project.scripts]
+emcali-corpus = "emcali_corpus.cli:main"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "ruff>=0.13.2",
+    "ty>=0.0.1a21",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]
+
+[tool.ty.environment]
+python-version = "3.13"
