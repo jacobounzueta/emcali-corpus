@@ -1,0 +1,35 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Herramientas de calidad
+.pytest_cache/
+.ruff_cache/
+.ty_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Capas intermedias del corpus (reproducibles; no se versionan)
+data/raw/
+data/processed/
+data/errors.jsonl
+data/seeds.json
+capture-all.log
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Entornos locales
+.env
+.env.*
