@@ -18,7 +18,7 @@
 | **Nombre** | EMCALI Corpus |
 | **Descripción** | Pipeline de captura y curaduría del sitio web público de EMCALI para RAG. |
 | **Repositorio** | Pendiente de publicar (repositorio local `emcali_repo`) |
-| **Autoría** | Jacobo U — jacobo.unzueta@uao.edu.co · Rommel Prieto — rommel.prieto@uao.edu.co |
+| **Autoría** | Jacobo Unzueta — jacobo.unzueta@uao.edu.co · Rommel Prieto — rommel.prieto@uao.edu.co |
 | **Licencia** | MIT |
 | **Rama principal** | `main` |
 | **Estado** | Operativo 🟢 |
