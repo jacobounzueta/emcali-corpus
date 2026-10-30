@@ -14,6 +14,9 @@ uv run ty check              # tipos
 make check                   # todo lo anterior
 uv run emcali-corpus status  # estado del corpus
 uv run emcali-corpus reprocess  # reextraer gold/silver desde bronze, sin red
+uv run emcali-corpus chunk      # consolidar knowledge_base.md y chunks.jsonl
+uv run emcali-corpus ask "..."  # consultar el sistema Q&A con DeepSeek
+uv run streamlit run src/emcali_corpus/app.py  # dashboard interactivo (Taller 1)
 ```
 
 ## Invariantes
@@ -57,6 +60,11 @@ uv run emcali-corpus reprocess  # reextraer gold/silver desde bronze, sin red
 | Mejorar la conversión a Markdown | `src/emcali_corpus/extracting.py` |
 | Cambiar el renderizado | `src/emcali_corpus/rendering.py` |
 | Cambiar la orquestación | `src/emcali_corpus/pipeline.py` |
+| Consolidación y chunking semántico | `src/emcali_corpus/knowledge.py` |
+| Plantillas de Prompt Engineering | `src/emcali_corpus/prompts.py` |
+| Agente y tareas LangChain + DeepSeek | `src/emcali_corpus/assistant.py` |
+| Batería de 22 preguntas de prueba | `src/emcali_corpus/evaluation.py` |
+| Dashboard interactivo en Streamlit | `src/emcali_corpus/app.py` |
 | Cambiar la CLI | `src/emcali_corpus/cli.py` |
 
 ## Antes de terminar
