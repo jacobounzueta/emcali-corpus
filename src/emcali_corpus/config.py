@@ -99,6 +99,7 @@ class Seed:
 
 CURATED_SEEDS: tuple[Seed, ...] = (
     Seed("/", "inicio", "Inicio", "portada"),
+    Seed("/about", "about", "Sobre nosotros", "about"),
     Seed("/energia", "energia", "Energía", "energia"),
     Seed("/acueducto", "acueducto", "Acueducto y Alcantarillado", "acueducto"),
     Seed("/telco", "telco", "Telco", "telco"),
@@ -159,6 +160,12 @@ CURATED_SEEDS: tuple[Seed, ...] = (
         "metodos-de-pago",
         "Métodos de pago",
         "atencion-y-servicio-a-la-ciudadania",
+    ),
+    Seed(
+        "/terminos-condiciones-uso-factura-digital",
+        "terminos-condiciones-uso-factura-digital",
+        "Términos y condiciones de uso de factura digital",
+        "terminos-condiciones-uso-factura-digital",
     ),
     Seed("/telco/indicadores-pqr", "indicadores-pqr", "Indicadores PQR", "telco"),
 )
