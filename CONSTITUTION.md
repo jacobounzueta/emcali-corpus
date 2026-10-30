@@ -71,7 +71,7 @@ agente) pertenece al proyecto del curso, no a este repositorio.
 | 2. Páginas de contenido principales | ✅ Hecha | 18 documentos curados + `corpus.jsonl` |
 | 3. Cobertura del sitemap | ✅ Hecha | `capture --all` sobre 570 URLs públicas: 478 documentos |
 | 4. Enriquecimiento (PDFs, vídeo) | ⬜ Pendiente | Nuevas semillas y extractores |
-| 5. Chunking y embeddings | ⬜ Pendiente | Fuera de este repositorio |
+| 5. Consolidación, Chunking y Sistema Q&A (Taller 1) | ✅ Hecha | `knowledge.py`, `prompts.py`, `assistant.py`, `evaluation.py`, `app.py` y `docs/informe-taller-1.md` |
 
 ### Estado del corpus (2026-10-22)
 
@@ -99,6 +99,8 @@ volver a descargar lo ya capturado.
 | **HTTP** | `requests` (sesión única, `User-Agent` identificable, `timeout`, throttle) |
 | **Parseo HTML** | `beautifulsoup4` + `lxml` |
 | **Renderizado JS** | [`playwright`](https://playwright.dev/python/) + Chromium |
+| **Orquestación LLM y Chunking** | `langchain`, `langchain-deepseek` (`deepseek-flash`), `langchain-text-splitters` |
+| **Interfaz de Prueba (Taller 1)** | `streamlit` (`src/emcali_corpus/app.py`) |
 | **Tipado estático** | [`ty`](https://github.com/astral-sh/ty) |
 | **Testing** | [`pytest`](https://docs.pytest.org/) |
 | **Linting / Formato** | [Ruff](https://docs.astral.sh/ruff/) |
@@ -236,6 +238,7 @@ git push
 | 2026-10-22 | Ignorar sitemaps vacíos o mal formados y sufijar colisiones con SHA-256 | El sitemap responde esporádicamente vacío; el sufijo debe ser estable entre ejecuciones |
 | 2026-10-22 | Esperar `domcontentloaded` + hidratación de `#root` en lugar de `networkidle` | El portal nunca alcanza `networkidle`; cada página tardaba 60 s y la captura completa era inviable |
 | 2026-10-22 | Añadir `reprocess` para reextraer desde bronze | Permite mejorar el extractor sin volver a descargar el sitio |
+| 2026-10-29 | Integrar consolidación, chunking semántico, LangChain + DeepSeek (`deepseek-flash`) y Streamlit (ADR 0007) | Entregar en un único repositorio el Taller 1 completo (scraping, base de conocimiento, Q&A/Resumen/FAQ, interfaz y pruebas) |
 
 ## 10. Notas y tareas pendientes
 

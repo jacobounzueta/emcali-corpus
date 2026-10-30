@@ -5,7 +5,7 @@ CLI := $(UV) run emcali-corpus
 .DEFAULT_GOAL := help
 
 .PHONY: help sync install-browsers capture capture-all capture-sections discover \
-	index reprocess status list lint format format-check typecheck test check pre-commit \
+	index reprocess status list chunk app evaluate lint format format-check typecheck test check pre-commit \
 	clean-bronze clean
 
 help: ## Muestra esta ayuda
@@ -41,6 +41,15 @@ status: ## Muestra el estado del corpus
 
 list: ## Lista los documentos indexados
 	$(CLI) list
+
+chunk: ## Consolida la base de conocimiento limpia y genera los chunks
+	$(CLI) chunk
+
+app: ## Inicia el dashboard interactivo de Streamlit (Taller 1)
+	$(UV) run streamlit run app.py
+
+evaluate: ## Ejecuta la batería de 22 preguntas de prueba y genera docs/evaluacion_preguntas.md
+	$(CLI) evaluate
 
 lint: ## Ejecuta Ruff sobre el código
 	$(UV) run ruff check .
