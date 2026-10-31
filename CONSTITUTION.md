@@ -16,8 +16,8 @@
 | Campo | Valor |
 |-------|-------|
 | **Nombre** | EMCALI Corpus |
-| **Descripción** | Pipeline de captura y curaduría del sitio web público de EMCALI para RAG. |
-| **Repositorio** | Pendiente de publicar (repositorio local `emcali_repo`) |
+| **Descripción** | Pipeline de captura y curaduría del sitio web público de EMCALI, consolidación semántica y sistema Q&A para RAG. |
+| **Repositorio** | [`https://github.com/jacobounzueta/emcali-corpus`](https://github.com/jacobounzueta/emcali-corpus) |
 | **Autoría** | Jacobo Unzueta — jacobo.unzueta@uao.edu.co · Rommel Prieto — rommel.prieto@uao.edu.co |
 | **Licencia** | MIT |
 | **Rama principal** | `main` |
@@ -29,14 +29,13 @@
 
 Convertir las páginas públicas de EMCALI en un corpus Markdown citable, reproducible
 y listo para un pipeline de RAG, respetando `robots.txt` y sin depender de una API
-del sitio.
+del sitio, integrando su consolidación semántica, segmentación (*chunking*) y un
+asistente Q&A/Resumen/FAQ con atribución verificable de fuentes.
 
 ### No-propósito
 
 No es un *crawler* masivo de Internet, ni un motor de búsqueda, ni un sistema que
-atraviese formularios, sesiones autenticadas, trámites o datos personales. Tampoco
-es un generador de respuestas: el consumo del corpus (embeddings, recuperación,
-agente) pertenece al proyecto del curso, no a este repositorio.
+atraviese formularios, sesiones autenticadas, trámites o datos personales.
 
 ## 2. Alcance
 
@@ -52,7 +51,11 @@ agente) pertenece al proyecto del curso, no a este repositorio.
   bloques de métricas.
 - Versionar `data/gold/` como entregable del corpus.
 - Reprocesar gold y silver desde bronze sin volver a la web.
-- Ofrecer una CLI y un Makefile como interfaz única del proyecto.
+- Consolidar la base de conocimiento institucional deduplicada por `content_sha256`
+  (`data/knowledge_base.md`) y segmentarla en *chunks* semánticos (`data/chunks.jsonl`).
+- Orquestar con LangChain y DeepSeek (`deepseek-flash`) las tareas de Q&A citado,
+  Resumen Ejecutivo, Generación de FAQ y evaluación sobre 22 preguntas (`docs/evaluacion_preguntas.md`).
+- Ofrecer una CLI, un Makefile y un dashboard en Streamlit (`app.py`) como interfaces del proyecto.
 
 ### Fuera del alcance (por ahora)
 
@@ -61,7 +64,7 @@ agente) pertenece al proyecto del curso, no a este repositorio.
 - Formularios externos incrustados (por ejemplo el formulario de clausura de
   servicios tras el sismo).
 - PDFs, imágenes, vídeos y transcripciones.
-- *Chunking*, embeddings e indexación vectorial.
+- Indexación en base de datos vectorial (proyectada para el Módulo 2).
 
 ### Fases
 
@@ -125,7 +128,8 @@ volver a descargar lo ya capturado.
 ## 4. Estructura del repositorio
 
 ```text
-emcali_repo/
+emcali-corpus/
+├── app.py                   # punto de entrada raíz para Streamlit
 ├── src/emcali_corpus/       # código del paquete (src-layout)
 │   ├── config.py            # semillas, capas, política HTTP, hosts de renderizado
 │   ├── fetching.py          # cliente HTTP educado y robots.txt
@@ -134,8 +138,13 @@ emcali_repo/
 │   ├── discovery.py         # sitemap.xml → semillas
 │   ├── gold.py              # front matter + índice JSONL
 │   ├── pipeline.py          # orquestación de las tres capas
+│   ├── knowledge.py         # deduplicación SHA-256, métricas de embudo y chunking
+│   ├── prompts.py           # estrategias de Prompt Engineering (Q&A, Resumen, FAQ)
+│   ├── assistant.py         # orquestación LangChain + DeepSeek (deepseek-flash)
+│   ├── evaluation.py        # batería de 22 preguntas de prueba y evaluación
+│   ├── app.py               # dashboard interactivo en Streamlit (5 pestañas)
 │   ├── models.py            # modelos del dominio
-│   ├── cli.py               # capture / discover / index / reprocess / status / list
+│   ├── cli.py               # capture / discover / index / reprocess / status / list / chunk / ask / summarize / faq / evaluate
 │   └── __main__.py          # python -m emcali_corpus
 ├── data/                    # capas Medallion (raw y processed ignoradas)
 │   ├── raw/                 # bronze — HTML crudo por sección
@@ -145,7 +154,7 @@ emcali_repo/
 │       │   └── <slug>.md
 │       └── corpus.jsonl     # índice con rutas completas
 ├── tests/                   # pruebas (pytest, patrón AAA)
-├── docs/                    # arquitectura y ADRs
+├── docs/                    # ADRs, informe-taller-1.md y evaluacion_preguntas.md
 ├── .github/                 # gobernanza (PR/issue templates, CI, Dependabot)
 ├── AGENTS.md                # contexto para agentes LLM
 ├── CONSTITUTION.md          # este archivo — verdad central
@@ -242,12 +251,12 @@ git push
 
 ## 10. Notas y tareas pendientes
 
-- [ ] Publicar el repositorio y fijar la URL remota en esta constitución.
+- [x] Publicar el repositorio y fijar la URL remota en esta constitución (`https://github.com/jacobounzueta/emcali-corpus`).
+- [x] Definir el contrato de *chunking* semántico (`data/chunks.jsonl`) y el informe de evaluación (`docs/evaluacion_preguntas.md`).
 - [ ] Añadir extracción de PDFs (informes, tarifas y documentos de transparencia).
 - [ ] Añadir transcripciones de vídeo (`yt-dlp` / `youtube-transcript-api`).
 - [ ] Enriquecer el *front matter* con entidades, dependencias y categorías.
 - [ ] Evaluar *deduplicación* de *boilerplate* entre documentos por hash de bloque.
-- [ ] Definir el contrato de *chunking* con el proyecto consumidor.
 
 ## 11. Configuración local (no trackear)
 

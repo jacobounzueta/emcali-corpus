@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Pipeline de captura y curaduría del sitio web de EMCALI para RAG."
 readme = "README.md"
 authors = [
-    { name = "Jacobo U", email = "jacobo.unzueta@uao.edu.co" },
+    { name = "Jacobo Unzueta", email = "jacobo.unzueta@uao.edu.co" },
     { name = "Rommel Prieto", email = "rommel.prieto@uao.edu.co" },
 ]
 license = "MIT"
