@@ -8,9 +8,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
-    name: Ruff · ty · pytest
+    name: Calidad (Pre-commit · Ruff · ty · pytest)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,9 +24,13 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Sync dependencies
-        run: uv sync --frozen
+        run: uv sync --all-groups --frozen
+
+      - name: Pre-commit (higiene + Ruff + uv-lock)
+        run: uv run pre-commit run --all-files --show-diff-on-failure
 
       - name: Lint
         run: uv run ruff check .
@@ -30,8 +38,8 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
 
-      - name: Type check
+      - name: Type check (ty)
         run: uv run ty check
 
-      - name: Tests
+      - name: Tests (pytest)
         run: uv run pytest

@@ -4,16 +4,23 @@ CLI := $(UV) run emcali-corpus
 
 .DEFAULT_GOAL := help
 
-.PHONY: help sync install-browsers capture capture-all capture-sections discover \
-	index reprocess status list chunk app evaluate lint format format-check typecheck test check pre-commit \
-	clean-bronze clean
+.PHONY: help install dev pre-commit-install sync install-browsers capture capture-all capture-sections discover \
+	index reprocess status list chunk app evaluate lint format format-check typecheck test check pre-commit build \
+	clean-bronze clean-data clean
 
 help: ## Muestra esta ayuda
 	@echo "EMCALI Corpus — tareas disponibles:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-sync: ## Sincroniza el entorno con uv.lock
+install: ## Sincroniza el entorno virtual desde uv.lock
 	$(UV) sync
+
+dev: install pre-commit-install ## Configura el entorno de desarrollo completo (uv sync + hooks)
+
+pre-commit-install: ## Instala los hooks de pre-commit en .git/hooks
+	$(UV) run pre-commit install
+
+sync: install ## Alias de install: sincroniza el entorno con uv.lock
 
 install-browsers: ## Instala Chromium para Playwright
 	$(UV) run playwright install chromium
@@ -71,8 +78,14 @@ check: lint format-check typecheck test ## Verificación completa antes de commi
 pre-commit: ## Ejecuta los hooks de pre-commit sobre todo el repositorio
 	$(UV) run pre-commit run --all-files
 
+build: ## Construye el paquete (sdist + wheel) en dist/
+	$(UV) build
+
 clean-bronze: ## Borra las capas bronze y silver (conserva gold)
 	$(UV) run python -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in (pathlib.Path('data/raw'), pathlib.Path('data/processed'))]"
 
-clean: ## Borra bronze, silver, errores e índice generado
+clean-data: ## Borra bronze, silver e índice corpus.jsonl generado
 	$(UV) run python -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in (pathlib.Path('data/raw'), pathlib.Path('data/processed'))]; pathlib.Path('data/gold/corpus.jsonl').unlink(missing_ok=True)"
+
+clean: ## Limpia artefactos temporales y cachés de Python (.pytest_cache, .ruff_cache, dist, build)
+	$(UV) run python -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in (pathlib.Path('.pytest_cache'), pathlib.Path('.ruff_cache'), pathlib.Path('.coverage'), pathlib.Path('htmlcov'), pathlib.Path('dist'), pathlib.Path('build'))]; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]"

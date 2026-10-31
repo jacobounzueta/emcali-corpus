@@ -8,7 +8,15 @@ authors = [
     { name = "Rommel Prieto", email = "rommel.prieto@uao.edu.co" },
 ]
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
 dependencies = [
     "beautifulsoup4>=4.13.4",
     "langchain>=1.4.7",
@@ -20,6 +28,11 @@ dependencies = [
     "requests>=2.32.5",
     "streamlit>=1.66.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/jacobounzueta/emcali-corpus"
+Repository = "https://github.com/jacobounzueta/emcali-corpus.git"
+Issues = "https://github.com/jacobounzueta/emcali-corpus/issues"
 
 [project.scripts]
 emcali-corpus = "emcali_corpus.cli:main"
@@ -42,7 +55,10 @@ target-version = "py313"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["emcali_corpus"]
 
 [tool.ruff.format]
 quote-style = "double"

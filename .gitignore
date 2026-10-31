@@ -26,8 +26,11 @@ data/knowledge_base.md
 data/chunks.jsonl
 capture-all.log
 
-# Configuraciones locales de agentes
-.opencode/
+# Configuraciones locales de agentes e índices de búsqueda
+.tgrep/
+.opencode/*
+!.opencode/rules/
+!.opencode/rules/tgrep.md
 .specify/
 opencode.json
 

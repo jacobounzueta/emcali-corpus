@@ -273,3 +273,14 @@ local de Playwright.
 
 > No se versionan credenciales, rutas personales ni configuración específica de la
 > máquina. El proyecto no necesita secretos: solo accede a información pública.
+
+## 12. Gobierno de este documento
+
+- **Regla de sincronización:** cualquier cambio arquitectónico, tecnológico, de modelo de
+  datos o de proceso debe reflejarse en `CONSTITUTION.md` en el **mismo Pull Request** (y
+  documentarse mediante un ADR en `docs/adr/` cuando la decisión tenga alternativas no
+  triviales).
+- **Precedencia:** ante cualquier contradicción entre `README.md`, `AGENTS.md` o
+  comentarios en código, prevalece lo establecido en este documento.
+- **Revisión en PR:** la plantilla de Pull Request incluye la verificación explícita de que
+  `CONSTITUTION.md` permanece alineado con el estado real del sistema.
