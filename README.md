@@ -1,9 +1,12 @@
 # ⚡ EMCALI Corpus — Núcleo de Conocimiento Semántico y Sistema Q&A
 
 [![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![CI](https://github.com/jacobounzueta/emcali-corpus/actions/workflows/ci.yml/badge.svg)](https://github.com/jacobounzueta/emcali-corpus/actions/workflows/ci.yml)
 [![uv](https://img.shields.io/badge/uv-package_manager-DE5FE9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/badge/Ruff-lint_%26_format-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![ty](https://img.shields.io/badge/ty-type_checked-2B5B84)](https://github.com/astral-sh/ty)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=precommit&logoColor=white)](./.pre-commit-config.yaml)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg)](https://conventionalcommits.org)
 [![pytest](https://img.shields.io/badge/pytest-38_passed-0A9EDC?logo=pytest&logoColor=white)](tests/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.4-1C3C3C?logo=langchain&logoColor=white)](https://python.langchain.com/)
 [![DeepSeek V4.1 Flash](https://img.shields.io/badge/LLM-DeepSeek_V4.1_Flash-4D6BFE)](https://platform.deepseek.com/)

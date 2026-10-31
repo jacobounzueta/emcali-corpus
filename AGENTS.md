@@ -73,3 +73,20 @@ uv run streamlit run src/emcali_corpus/app.py  # dashboard interactivo (Taller 1
 2. Si cambió el comportamiento o la arquitectura, actualiza `CONSTITUTION.md` y el
    ADR correspondiente en `docs/adr/`.
 3. No dejes archivos de `data/raw/` ni `data/processed/` en el commit.
+
+## Búsqueda de código: `tgrep`
+
+Si [`tgrep`](https://github.com/microsoft/tgrep) está instalado, úsalo para búsquedas de
+código en lugar de `grep` o `find` (índice de trigramas en `.tgrep/`, ignorado por Git):
+
+```bash
+tgrep -- "patrón" .            # búsqueda regex (usa -- antes del patrón)
+tgrep -F -- "simbolo" .        # coincidencia literal
+tgrep -t py -- "def " .        # filtrar por tipo de archivo
+tgrep -g "src/**" -- "kw" .    # filtrar por ruta
+tgrep -l -- "import " .        # listar archivos coincidentes
+tgrep index .                  # (re)indexar
+```
+
+En OpenCode la preferencia se aplica automáticamente mediante la regla
+[`.opencode/rules/tgrep.md`](./.opencode/rules/tgrep.md).
