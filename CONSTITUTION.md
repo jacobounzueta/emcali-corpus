@@ -75,6 +75,7 @@ atraviese formularios, sesiones autenticadas, trámites o datos personales.
 | 3. Cobertura del sitemap | ✅ Hecha | `capture --all` sobre 570 URLs públicas: 478 documentos |
 | 4. Enriquecimiento (PDFs, vídeo) | ⬜ Pendiente | Nuevas semillas y extractores |
 | 5. Consolidación, Chunking y Sistema Q&A (Taller 1) | ✅ Hecha | `knowledge.py`, `prompts.py`, `assistant.py`, `evaluation.py`, `app.py` y `docs/informe-taller-1.md` |
+| 6. Agente Conversacional, Memorias, Qdrant ANN, Router Jev, Voz y Frontend React (Módulo 2) | ✅ Hecha | `agent_graph.py`, `memory.py`, `vector_store.py`, `tools.py`, `router.py`, `security.py`, `voice.py`, `retrieval_eval.py`, `api.py`, `frontend/` y `docs/informe-taller-2.md` |
 
 ### Estado del corpus (2026-10-22)
 
@@ -102,8 +103,10 @@ volver a descargar lo ya capturado.
 | **HTTP** | `requests` (sesión única, `User-Agent` identificable, `timeout`, throttle) |
 | **Parseo HTML** | `beautifulsoup4` + `lxml` |
 | **Renderizado JS** | [`playwright`](https://playwright.dev/python/) + Chromium |
-| **Orquestación LLM y Chunking** | `langchain`, `langchain-deepseek` (`deepseek-flash`), `langchain-text-splitters` |
-| **Interfaz de Prueba (Taller 1)** | `streamlit` (`src/emcali_corpus/app.py`) |
+| **Orquestación LLM y Agentes** | `langchain`, `langgraph` (`StateGraph`), `langgraph-checkpoint-sqlite` (`SqliteSaver`), `langchain-deepseek` (`deepseek-flash`), `langchain-text-splitters` |
+| **Base Vectorial y Retrieval** | `qdrant-client` (índice ANN HNSW + filtros payload + fusión híbrida BM25 RRF) |
+| **Backend API y Frontend Propio (Módulo 2)** | `fastapi` (`api/main.py`, SSE streaming) + `React 19`, `TypeScript`, `Vite`, `Tailwind CSS` (`frontend/`) + Voz Hotword `"Oye EMCALI"` |
+| **Interfaz Legado (Taller 1)** | `streamlit` (`src/emcali_corpus/app.py`) |
 | **Tipado estático** | [`ty`](https://github.com/astral-sh/ty) |
 | **Testing** | [`pytest`](https://docs.pytest.org/) |
 | **Linting / Formato** | [Ruff](https://docs.astral.sh/ruff/) |
@@ -248,11 +251,14 @@ git push
 | 2026-10-22 | Esperar `domcontentloaded` + hidratación de `#root` en lugar de `networkidle` | El portal nunca alcanza `networkidle`; cada página tardaba 60 s y la captura completa era inviable |
 | 2026-10-22 | Añadir `reprocess` para reextraer desde bronze | Permite mejorar el extractor sin volver a descargar el sitio |
 | 2026-10-29 | Integrar consolidación, chunking semántico, LangChain + DeepSeek (`deepseek-flash`) y Streamlit (ADR 0007) | Entregar en un único repositorio el Taller 1 completo (scraping, base de conocimiento, Q&A/Resumen/FAQ, interfaz y pruebas) |
+| 2026-11-13 | Evolucionar a Agente Conversacional en LangGraph con `SqliteSaver`, `Store` por namespaces, Qdrant HNSW ANN híbrido, `@tool` CSV/JSON con Pydantic, Router `Jev`, Blindaje RAG, Voz Hotword y Frontend React + FastAPI (ADR 0008) | Cumplir todos los criterios arquitectónicos del Módulo 2 reemplazando Streamlit por una SPA React desacoplada |
 
 ## 10. Notas y tareas pendientes
 
 - [x] Publicar el repositorio y fijar la URL remota en esta constitución (`https://github.com/jacobounzueta/emcali-corpus`).
 - [x] Definir el contrato de *chunking* semántico (`data/chunks.jsonl`) y el informe de evaluación (`docs/evaluacion_preguntas.md`).
+- [x] Indexar los `1.385` chunks en Qdrant con índice ANN HNSW y evaluar `Recall@10` y `nDCG@10` (`docs/evaluacion_retrieval_m2.md`).
+- [x] Desacoplar Frontend propio en React + TypeScript + Vite (`frontend/`) y Backend API en FastAPI (`api/main.py`) con streaming SSE y voz por Hotword (`"Oye EMCALI"`).
 - [ ] Añadir extracción de PDFs (informes, tarifas y documentos de transparencia).
 - [ ] Añadir transcripciones de vídeo (`yt-dlp` / `youtube-transcript-api`).
 - [ ] Enriquecer el *front matter* con entidades, dependencias y categorías.
