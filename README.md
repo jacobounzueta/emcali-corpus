@@ -202,6 +202,13 @@ emcali-corpus/
     └── ...
 ```
 
+### 🖥️ Interfaz Web Ciudadana y Modo Académico (`frontend/`)
+
+El portal web sigue la identidad visual institucional de **EMCALI** y separa la experiencia del usuario final de la telemetría técnica mediante dos pestañas:
+
+- **Asistente Ciudadano (Producto EMCALI):** Chat limpio con **DeepSeek API** activado por defecto, botón para limpiar conversación, desplazamiento automático al final al usar preguntas frecuentes y modo de voz **Eder Live** con voz masculina `es-CO`, filtro de emojis para TTS y protección *half-duplex* contra eco mientras Eder habla.
+- **Rayos-X & Validación (Sustentación):** Panel académico que expone en tiempo real las trazas del `Router Jev`, `@tool` Pydantic ejecutadas, fragmentos de Qdrant, estado de memoria (`SqliteSaver` / `Store`) y el [guion de sustentación](docs/guion-sustentacion-modulo-2.md).
+
 ---
 
 ## 👥 Créditos y Roles del Equipo (Grupo 5 — EMCALI)
