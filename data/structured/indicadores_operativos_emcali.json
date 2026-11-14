@@ -1,0 +1,123 @@
+{
+  "entidad": "EMCALI E.I.C.E. E.S.P.",
+  "nit": "890.399.003-4",
+  "domicilio": "CAM Torre EMCALI, Avenida 2 Norte # 10-70, Cali, Valle del Cauca",
+  "gerencia": {
+    "gerente_general": "Roger Mina",
+    "energia": "Mario Germán Ocaña",
+    "acueducto_y_alcantarillado": "Diego Fernando Carabali",
+    "telecomunicaciones": "Roberto Carlos Angulo"
+  },
+  "indicadores_infraestructura": [
+    {
+      "codigo": "INF-ENE-01",
+      "servicio": "energia",
+      "indicador": "Clientes atendidos en energía eléctrica",
+      "valor_reportado": 790000,
+      "meta_plan_corporativo": 800000,
+      "unidad": "clientes",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/energia"
+    },
+    {
+      "codigo": "INF-ENE-02",
+      "servicio": "energia",
+      "indicador": "Extensión de red de distribución de energía",
+      "valor_reportado": 19000,
+      "meta_plan_corporativo": 19500,
+      "unidad": "km",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/energia"
+    },
+    {
+      "codigo": "INF-ENE-03",
+      "servicio": "energia",
+      "indicador": "Puntos de monitoreo en tiempo real en red eléctrica",
+      "valor_reportado": 750,
+      "meta_plan_corporativo": 800,
+      "unidad": "puntos",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/energia"
+    },
+    {
+      "codigo": "INF-ENE-04",
+      "servicio": "energia",
+      "indicador": "Circuitos y activos supervisados de distribución",
+      "valor_reportado": 3000,
+      "meta_plan_corporativo": 3000,
+      "unidad": "circuitos",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/energia"
+    },
+    {
+      "codigo": "INF-TEL-01",
+      "servicio": "telco",
+      "indicador": "Cobertura de red de fibra óptica en Cali",
+      "valor_reportado": 92.0,
+      "meta_plan_corporativo": 95.0,
+      "unidad": "porcentaje",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/telco"
+    },
+    {
+      "codigo": "INF-TEL-02",
+      "servicio": "telco",
+      "indicador": "Cable en desuso desmontado (Operación Cali sin enredos)",
+      "valor_reportado": 57000,
+      "meta_plan_corporativo": 60000,
+      "unidad": "metros",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/telco"
+    },
+    {
+      "codigo": "SLA-DAT-01",
+      "servicio": "proteccion-de-datos-personales",
+      "indicador": "Plazo máximo legal de respuesta a consultas (Ley 1581 de 2012)",
+      "valor_reportado": 10,
+      "meta_plan_corporativo": 10,
+      "unidad": "dias_habiles",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/proteccion-de-datos-personales"
+    },
+    {
+      "codigo": "SLA-DAT-02",
+      "servicio": "proteccion-de-datos-personales",
+      "indicador": "Plazo máximo legal de respuesta a reclamos (Ley 1581 de 2012)",
+      "valor_reportado": 15,
+      "meta_plan_corporativo": 15,
+      "unidad": "dias_habiles",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/proteccion-de-datos-personales"
+    },
+    {
+      "codigo": "PQR-GLOBAL-Q1",
+      "servicio": "atencion-y-servicio-a-la-ciudadania",
+      "indicador": "Solicitudes PQR atendidas oportunamente en primer trimestre",
+      "valor_reportado": 42150,
+      "meta_plan_corporativo": 40000,
+      "unidad": "solicitudes",
+      "trimestre": "2026-Q1",
+      "fuente_url": "https://www.emcali.com.co/telco/indicadores-pqr"
+    },
+    {
+      "codigo": "PQR-GLOBAL-Q2",
+      "servicio": "atencion-y-servicio-a-la-ciudadania",
+      "indicador": "Solicitudes PQR atendidas oportunamente en segundo trimestre",
+      "valor_reportado": 44820,
+      "meta_plan_corporativo": 43000,
+      "unidad": "solicitudes",
+      "trimestre": "2026-Q2",
+      "fuente_url": "https://www.emcali.com.co/telco/indicadores-pqr"
+    },
+    {
+      "codigo": "PQR-GLOBAL-Q3",
+      "servicio": "atencion-y-servicio-a-la-ciudadania",
+      "indicador": "Solicitudes PQR atendidas oportunamente en tercer trimestre",
+      "valor_reportado": 47390,
+      "meta_plan_corporativo": 45000,
+      "unidad": "solicitudes",
+      "trimestre": "2026-Q3",
+      "fuente_url": "https://www.emcali.com.co/telco/indicadores-pqr"
+    }
+  ]
+}
