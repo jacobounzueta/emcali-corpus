@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import re
+import threading
 import uuid
 from collections import Counter
 from collections.abc import Sequence
@@ -520,13 +521,16 @@ class EmcaliQdrantVectorStore:
 
 
 _DEFAULT_VECTOR_STORE: EmcaliQdrantVectorStore | None = None
+_VECTOR_STORE_LOCK = threading.Lock()
 
 
 def get_vector_store(*, in_memory: bool = False) -> EmcaliQdrantVectorStore:
-    """Obtiene o inicializa el singleton de la base vectorial Qdrant."""
+    """Obtiene o inicializa de forma thread-safe el singleton de la base vectorial Qdrant."""
     global _DEFAULT_VECTOR_STORE
     if _DEFAULT_VECTOR_STORE is None or (_DEFAULT_VECTOR_STORE.in_memory != in_memory):
-        _DEFAULT_VECTOR_STORE = EmcaliQdrantVectorStore(in_memory=in_memory)
+        with _VECTOR_STORE_LOCK:
+            if _DEFAULT_VECTOR_STORE is None or (_DEFAULT_VECTOR_STORE.in_memory != in_memory):
+                _DEFAULT_VECTOR_STORE = EmcaliQdrantVectorStore(in_memory=in_memory)
     return _DEFAULT_VECTOR_STORE
 
 

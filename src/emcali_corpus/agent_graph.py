@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, NotRequired, TypedDict, cast
@@ -798,13 +799,16 @@ class EmcaliConversationalAgent:
 
 
 _DEFAULT_AGENT: EmcaliConversationalAgent | None = None
+_AGENT_LOCK = threading.Lock()
 
 
 def get_conversational_agent(*, in_memory: bool = False) -> EmcaliConversationalAgent:
-    """Devuelve la instancia singleton del agente conversacional LangGraph."""
+    """Devuelve de forma thread-safe la instancia singleton del agente conversacional LangGraph."""
     global _DEFAULT_AGENT
     if in_memory:
         return EmcaliConversationalAgent(in_memory=True)
     if _DEFAULT_AGENT is None:
-        _DEFAULT_AGENT = EmcaliConversationalAgent(in_memory=False)
+        with _AGENT_LOCK:
+            if _DEFAULT_AGENT is None:
+                _DEFAULT_AGENT = EmcaliConversationalAgent(in_memory=False)
     return _DEFAULT_AGENT
