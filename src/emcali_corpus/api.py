@@ -52,7 +52,7 @@ class ChatRequest(BaseModel):
         default=None, description="Filtro opcional de sección en Qdrant."
     )
     search_mode: Literal["hybrid", "dense", "lexical"] = Field(default="hybrid")
-    top_k: int = Field(default=4, ge=1, le=10)
+    top_k: int = Field(default=6, ge=1, le=10)
     use_llm: bool = Field(
         default=True,
         description="Si True invoca ChatDeepSeek; si False usa síntesis determinista rápida.",

@@ -517,7 +517,7 @@ export default function App() {
           user_id: userId,
           section_filter: sectionFilter || null,
           search_mode: searchMode,
-          top_k: 4,
+          top_k: 6,
           use_llm: useLlm,
         }),
       });
