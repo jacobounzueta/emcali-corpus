@@ -20,7 +20,7 @@ cd C:\Users\ASUS\Documents\DS-AI\TAAML\emcali-corpus
 npm --prefix frontend run dev
 ```
 
-1. **Pestaña 1 (Navegador):** `http://localhost:5173` (Aplicación React de EMCALI abierta en la vista `💬 Agente & Rayos-X en Vivo`).
+1. **Pestaña 1 (Navegador):** `http://localhost:5173` (Portal ciudadano de EMCALI abierto inicialmente en `💬 Atención Ciudadana` con **DeepSeek API** activado por defecto; las evidencias técnicas viven en `🔬 Rayos-X & Validación`, `📊 Evaluación Retrieval` y `🏗️ Arquitectura & Datos`).
 2. **Pestaña 2 (Navegador):** `https://github.com/jacobounzueta/emcali-corpus` (Pestaña de Pull Requests cerrados, Commits y `README.md` con los diagramas de arquitectura).
 3. **Pestaña 3 (IDE):** VS Code / Antigravity con `src/emcali_corpus/agent_graph.py`, `src/emcali_corpus/router.py`, `src/emcali_corpus/memory.py`, `src/emcali_corpus/api.py` y `frontend/src/App.tsx`.
 
@@ -39,8 +39,8 @@ npm --prefix frontend run dev
 
 ### Bloque 2 · `1:30 – 4:00` · Memoria de Corto y Largo Plazo + Reinicio en Vivo (Rommel)
 - **Paso 1 (Registrar en Corto y Largo Plazo):**
-  - En el frontend (`Hilo: hilo-sustentacion-01`, `Usuario: ana-carvajal`), hacer clic en el botón **`Caso 2A`** (*"Hola, me llamo Ana, trabajo en Carvajal y vivo en estrato 3"*).
-  - Señalar a la derecha en la tarjeta **3. Memoria Corto Plazo & Largo Plazo** cómo el hecho quedó guardado tanto en `SqliteSaver` como en el `Store` bajo el namespace `users/ana-carvajal/memories`.
+  - Pasar a la pestaña **`🔬 Rayos-X & Validación`** (con `Hilo: hilo-sustentacion-01`, `Usuario: ana-carvajal`) y hacer clic en el botón **`Caso 2A`** (*"Hola, me llamo Ana, trabajo en Carvajal y vivo en estrato 3"*).
+  - Señalar en la tarjeta **3. Memoria Corto Plazo & Largo Plazo** cómo el hecho quedó guardado tanto en `SqliteSaver` como en el `Store` bajo el namespace `users/ana-carvajal/memories`.
 - **Paso 2 (Matar y Reiniciar el Proceso del Backend en Vivo):**
   - Apuntar al **Backend PID** en la barra superior de la aplicación React.
   - Ir a la **Terminal 1**, presionar `Ctrl+C` para detener FastAPI y volver a ejecutar `uv run fastapi dev api/main.py`.
@@ -58,17 +58,17 @@ npm --prefix frontend run dev
   - Hacer clic en **`Caso 1`** (*"¿Qué dice el corpus oficial sobre la Política de Tratamiento de Datos Personales (Ley 1581 de 2012), los plazos de respuesta y los derechos del titular?"*).
   - Señalar en el **Panel de Rayos-X (Tarjeta 4)** los fragmentos top-$k$ recuperados de **Qdrant** (`proteccion-de-datos-personales#c01`), sus puntajes híbridos (`RRF`, `Cosine HNSW` y `BM25`) y las citas verificables al final de la respuesta (10 días hábiles para consultas, 15 para reclamos).
 - **Paso 2 (Métricas `Recall@10` y `nDCG@10`):**
-  - Cambiar a la pestaña superior **`📊 Evaluación Retrieval (Recall@10 / nDCG@10)`**.
+  - Cambiar a la pestaña superior **`📊 Evaluación Retrieval`**.
   - Mostrar las **25 consultas etiquetadas** donde la búsqueda híbrida sobre Qdrant alcanza **`Recall@10 = 100.0%`**, **`MRR@10 = 0.943`** y **`nDCG@10 = 0.884`**, superando a la búsqueda densa pura (`Recall@5 = 96.0%`).
 
 ---
 
-### Bloque 4 · `6:30 – 8:30` · Datos Estructurados (`@tool` Pydantic), Router `Jev` y Hotword de Voz (Rommel)
+### Bloque 4 · `6:30 – 8:30` · Datos Estructurados (`@tool` Pydantic), Router `Jev` y **Eder Live** (Rommel)
 - **Paso 1 (Saludo — Compuerta `Noul` sin búsqueda):**
-  - Volver a la pestaña del chat y hacer clic en **`Caso 4B`** (*"Hola, buenos días"*).
+  - Volver a **`🔬 Rayos-X & Validación`** y hacer clic en **`Caso 4B`** (*"Hola, buenos días"*).
   - Señalar en la **Tarjeta 1 (Router Jev)** que `Choice = direct_reply` y **`Compuerta Noul = TRUE (0 búsquedas)`**: el agente no quema búsquedas en Qdrant ante un saludo.
-- **Paso 2 (Herramienta Determinista CSV/JSON con Pydantic):**
-  - Hacer clic en **`Caso 3`** (*"¿Cuántas solicitudes PQR se atendieron en el tercer trimestre (2026-Q3) y cuál es la tarifa aplicada de energía en estrato 3 según el CSV?"*) — o ejecutarlo con el botón **`Probar Hotword`** diciendo *"Oye Eder, ¿cuántas PQR se atendieron en el tercer trimestre?"*.
+- **Paso 2 (Herramienta Determinista CSV/JSON con Pydantic y Voz):**
+  - Hacer clic en **`Caso 3`** (*"¿Cuántas solicitudes PQR se atendieron en el tercer trimestre (2026-Q3) y cuál es la tarifa aplicada de energía en estrato 3 según el CSV?"*) — o activarlo en **`💬 Atención Ciudadana`** con **Eder Live** diciendo *"Oye Eder, ¿cuántas PQR se atendieron en el tercer trimestre?"* (destacando la voz masculina `es-CO`, filtro de emojis y protección *half-duplex* contra eco).
   - Señalar que `Choice = structured_tool` y que las `@tool` validan con esquemas Pydantic (`TarifaRecord` e `IndicadorOperativoRecord`) devolviendo exactamente **`47,390` solicitudes PQR** y **`$748.0 COP/kWh`** (tarifa base `$880 COP` menos `15%` de subsidio).
 - **Paso 3 (Enrutamiento Mixto — CSV/JSON + RAG Qdrant):**
   - Hacer clic en **`Caso 4A`** (*"Compara la meta del documento corporativo sobre cobertura de fibra óptica y tarifas de energía en estrato 3 con los valores reportados en el CSV y JSON del tercer trimestre"*).
@@ -85,7 +85,7 @@ npm --prefix frontend run dev
 
 ### Bloque 6 · `10:00 – 11:30` · Repositorio GitHub e IDE (Jacobo & Rommel)
 - **En GitHub (Pestaña 2):**
-  - Mostrar los Pull Requests fusionados con revisión de **Rommel Prieto** (*Code Reviewer*), el historial de *Conventional Commits*, el CI en verde y los diagramas de arquitectura en el `README.md`.
+  - Mostrar los **42 Pull Requests** del repositorio (**37 fusionados** con revisión de **Rommel Prieto** como *Code Reviewer*), el historial de *Conventional Commits*, el CI en verde, el cumplimiento **100/100** del estándar de ingeniería (`polanco-standard-auditor`) y los diagramas de arquitectura en el `README.md`.
 - **En el IDE (Pestaña 3):**
   - Mostrar la separación limpia entre `frontend/src/App.tsx` (React + TS) y `src/emcali_corpus/api.py` (endpoints `/api/chat/stream` y `/api/voice/command`), además del grafo en `src/emcali_corpus/agent_graph.py`.
 
