@@ -10,9 +10,11 @@
 [![Qdrant](https://img.shields.io/badge/Qdrant-HNSW_ANN-DC244C)](https://qdrant.tech/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_SSE-009688?logo=fastapi&logoColor=white)](api/main.py)
 [![React 19](https://img.shields.io/badge/Frontend-React_19_%2B_TS_%2B_Vite-61DAFB?logo=react&logoColor=black)](frontend/)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Repositorio integral de ingeniería de datos y agentes conversacionales para las **Empresas Municipales de Cali — [EMCALI E.I.C.E. E.S.P.](https://www.emcali.com.co/)**, evolucionado del **Módulo 1** (pipeline de *web scraping* Medallion `Bronze → Silver → Gold` con `164` documentos institucionales y `1.385` chunks) al **Módulo 2**: un **Agente Conversacional en LangGraph** con **Frontend propio en React + TypeScript + Vite** desacoplado de un **Backend en FastAPI**, memoria de corto plazo (`SqliteSaver` + `trim_messages`) y largo plazo (`Store` por *namespace*), RAG híbrido sobre **Qdrant con índice ANN HNSW**, herramientas deterministas sobre `CSV`/`JSON` con **Pydantic**, **Router System One (`Jev`)**, **Blindaje contra inyección indirecta** e interacción por voz con **Hotword (`"Eder"`, `"Oye Eder"`, `"Hola Eder"`)**.
+Repositorio integral de ingeniería de datos y agentes conversacionales para las **Empresas Municipales de Cali — [EMCALI E.I.C.E. E.S.P.](https://www.emcali.com.co/)**, regido por [CONSTITUTION.md](CONSTITUTION.md) como fuente única de verdad técnica y evolucionado del **Módulo 1** (pipeline de *web scraping* Medallion `Bronze → Silver → Gold` con `164` documentos institucionales y `1.385` chunks) al **Módulo 2**: un **Agente Conversacional en LangGraph** con **Frontend propio en React + TypeScript + Vite** desacoplado de un **Backend en FastAPI**, memoria de corto plazo (`SqliteSaver` + `trim_messages`) y largo plazo (`Store` por *namespace*), RAG híbrido sobre **Qdrant con índice ANN HNSW**, herramientas deterministas sobre `CSV`/`JSON` con **Pydantic**, **Router System One (`Jev`)**, **Blindaje contra inyección indirecta** e interacción por voz con **Hotword (`"Eder"`, `"Oye Eder"`, `"Hola Eder"`)**.
 
 ---
 
