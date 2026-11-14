@@ -84,9 +84,8 @@ class RobotsPolicy:
                 if current_rules:
                     flush()
                 current_agents.append(value.lower())
-            elif key in {"allow", "disallow"} and current_agents:
-                if value:
-                    current_rules.append((key == "allow", value))
+            elif key in {"allow", "disallow"} and current_agents and value:
+                current_rules.append((key == "allow", value))
         flush()
 
         selected: list[tuple[bool, str]] = []
