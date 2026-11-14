@@ -53,6 +53,37 @@ OUT_OF_SCOPE_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 
+OFF_TOPIC_GENERAL_PATTERN = re.compile(
+    r"\b(derivada|integral|arctan|arccot|seno|coseno|tangente|l[ií]mite|c[aá]lculo|"
+    r"[aá]lgebra|ecuaci[oó]n|matriz|polinomio|logaritmo|graficar|simular|"
+    r"python|numpy|matplotlib|sympy|pandas|javascript|typescript|java|c\+\+|"
+    r"c[oó]digo\s+en|script\s+en|poema|chiste|hor[oó]scopo|receta)\b",
+    re.IGNORECASE,
+)
+
+EMCALI_DOMAIN_ANCHORS: tuple[str, ...] = (
+    "emcali",
+    "tarifa",
+    "tarifas",
+    "estrato",
+    "pqr",
+    "acueducto",
+    "alcantarillado",
+    "energía",
+    "energia",
+    "fibra",
+    "telco",
+    "ley 1581",
+    "datos personales",
+    "sostenibilidad",
+    "factura",
+    "contrato",
+    "pse",
+    "gerente",
+    "transparencia",
+    "sede",
+)
+
 STRUCTURED_KEYWORDS: tuple[str, ...] = (
     "csv",
     "json",
@@ -254,7 +285,10 @@ def _extract_box(question: str) -> JevBoxExtraction:
     is_greeting = any(p.search(lowered) for p in GREETING_PATTERNS)
     is_mem_intro = any(p.search(lowered) for p in SELF_MEMORY_Intro_PATTERNS) and "?" not in lowered
     is_mem_query = any(p.search(lowered) for p in SELF_MEMORY_QUERY_PATTERNS)
-    is_out = any(p.search(lowered) for p in OUT_OF_SCOPE_PATTERNS)
+    has_domain_anchor = any(anchor in lowered for anchor in EMCALI_DOMAIN_ANCHORS)
+    is_out = any(p.search(lowered) for p in OUT_OF_SCOPE_PATTERNS) or (
+        bool(OFF_TOPIC_GENERAL_PATTERN.search(lowered)) and not has_domain_anchor
+    )
     is_canary = any(
         k in lowered
         for k in (
