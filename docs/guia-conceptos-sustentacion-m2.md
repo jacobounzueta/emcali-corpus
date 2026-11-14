@@ -111,3 +111,49 @@
    *"`security.py` lo marca con regex (`override_previous_instructions`, etc.), neutraliza la orden y encapsula el texto en `<datos_pasivos_corpus solo_lectura="true">`, manteniendo la respuesta fiel al hecho real."*
 5. **¿Cómo controlan el tamaño del contexto en conversaciones largas?**  
    *"Combinamos `SummarizationMiddleware` para resumir turnos antiguos con `trim_messages(max_tokens=1800)` antes de cada llamada al modelo."*
+
+---
+
+## 9. Glosario de Conceptos Clave (Explicación Directa para la Sustentación)
+
+### Arquitectura, API y Frontend
+- **API REST & FastAPI:** Interfaz de programación sobre HTTP con validación automática mediante Pydantic y documentación OpenAPI. En el proyecto (`src/emcali_corpus/api.py`, `api/main.py`) desacopla el cerebro del agente del navegador.
+- **SSE (*Server-Sent Events*):** Protocolo estándar HTTP unidireccional (servidor $\rightarrow$ cliente) que permite enviar la respuesta del agente en tiempo real (*streaming* token por token) sin la complejidad de WebSockets bidireccionales (`/api/chat/stream`).
+- **SPA (*Single Page Application*):** Aplicación web en React 19 + TypeScript + Vite (`frontend/`) que actualiza la vista dinámicamente sin recargar la página completa.
+- **LangGraph (`StateGraph`):** Orquestador agéntico basado en grafos de estados con nodos y aristas condicionales. Permite ciclos, enrutamiento dinámico (`router_jev`), ejecución de herramientas y persistencia por *checkpoints*.
+
+### Memoria y Gestión de Contexto
+- **`Checkpointer` (`SqliteSaver`):** Mecanismo de LangGraph que guarda una instantánea (*snapshot*) del estado del grafo después de cada paso en `data/memory/checkpoints.sqlite`. Permite reanudar conversaciones tras reiniciar el servidor.
+- **`thread_id`:** Identificador único de una sesión o hilo de conversación. Todo el historial de corto plazo y los *checkpoints* de un chat quedan indexados por este ID.
+- **Time Travel:** Capacidad de inspeccionar, listar o retroceder a estados/checkpoints anteriores de un `thread_id` (expuesto en `/api/threads/{thread_id}/history`).
+- **Memoria de Corto Plazo (*Within-Thread*):** Contexto inmediato de la conversación activa (mensajes de usuario, llamadas a tools y respuestas del agente dentro del mismo `thread_id`).
+- **Memoria de Largo Plazo (`Store` / `PersistentSqliteStore`):** Almacenamiento persistente **entre hilos distintos** (*cross-thread*) organizado por **namespaces** jerárquicos (`("users", user_id, "memories")`) en `data/memory/store.sqlite`.
+- **`trim_messages`:** Utilidad que recorta los mensajes más antiguos de la ventana enviada al LLM para respetar un presupuesto máximo de tokens (`max_tokens=1800`) y evitar errores de límite de contexto o sobrecostos.
+- **`SummarizationMiddleware`:** Componente que, al superar cierto número de turnos, resume automáticamente los mensajes antiguos en un bloque compacto antes de recortarlos, preservando hechos importantes.
+
+### Recuperación Vectorial (RAG) y Métricas
+- **RAG (*Retrieval-Augmented Generation*):** Patrón que recupera evidencia de una base externa verificada antes de generar la respuesta, reduciendo alucinaciones y permitiendo citar fuentes reales.
+- **Embedding (Vector Denso):** Representación numérica de un texto en un espacio vectorial continuo (aquí de **384 dimensiones**) donde textos con significado similar quedan cerca según la **distancia/similitud coseno**.
+- **ANN (*Approximate Nearest Neighbors*):** Búsqueda aproximada de vecinos más cercanos. En lugar de comparar contra todos los vectores uno por uno (fuerza bruta), usa estructuras indexadas para responder en milisegundos a gran escala.
+- **HNSW (*Hierarchical Navigable Small World*):** Algoritmo de grafo multicapa usado por **Qdrant** para búsquedas ANN rápidas y precisas. Sus hiperparámetros clave aquí son `m=16` (conexiones por nodo) y `ef_construct=128` (profundidad de búsqueda al construir el índice).
+- **BM25 (*Best Matching 25*):** Algoritmo clásico de recuperación léxica (por palabras exactas, frecuencia TF e inversa documental IDF). Ideal para códigos, leyes o siglas exactas (`Ley 1581`, `2026-Q3`, `PQR`).
+- **Búsqueda Híbrida + RRF (*Reciprocal Rank Fusion*):** Combinación de búsqueda densa (semántica) + BM25 (léxica). RRF fusiona ambos rankings sumando $\frac{1}{k + \text{posición}}$, logrando lo mejor de ambos mundos sin depender de escalas incompatibles.
+- **Filtro de *Payload*:** Filtrado sobre metadatos adjuntos a cada vector en Qdrant (ej. `section`, `is_canary`) para acotar la búsqueda a una sección específica del corpus.
+- **`Recall@K`:** Proporción de consultas en las que el documento relevante aparece dentro de los primeros $K$ resultados (`Recall@10 = 100.0%` significa que en las 25 consultas el chunk correcto estuvo en el top-10).
+- **`MRR@10` (*Mean Reciprocal Rank*):** Promedio de $\frac{1}{\text{posición del primer resultado relevante}}$. Un valor de `0.943` indica que casi siempre el fragmento correcto aparece en la posición 1.
+- **`nDCG@10` (*Normalized Discounted Cumulative Gain*):** Métrica de calidad de ranking que premia que los documentos más relevantes aparezcan lo más arriba posible (`0.884`).
+
+### Agente, Herramientas y Seguridad
+- **System One (`Jev`):** Paradigma de enrutamiento rápido (`< 2 ms`) previo al LLM pesado. Evalúa cuatro primitivas: `Choice` (ruta), `Noul` (abstención si no hace falta buscar), `Score` (confianza) y `Box` (entidades extraídas).
+- **`@tool` Determinista + Pydantic v2:** Función Python expuesta al agente con esquema estricto de entrada y salida validado por Pydantic. Garantiza cálculos exactos sobre `CSV`/`JSON` sin que el LLM invente cifras.
+- **Inyección Indirecta (*Indirect Prompt Injection*):** Ataque donde un texto malicioso escondido dentro de un documento recuperado (no en el prompt del usuario) intenta secuestrar las instrucciones del agente.
+- **Encapsulamiento `<datos_pasivos_corpus>`:** Técnica de aislamiento estructural que envuelve los fragmentos recuperados en etiquetas XML de solo lectura (`solo_lectura="true"`), reforzando la separación entre instrucciones del sistema y datos externos.
+
+### Voz (Eder Live) e Ingeniería
+- **Hotword (*Wake Word*):** Palabra o frase clave (`"Eder"`, `"Oye Eder"`, `"Hola Eder"`) que despierta el modo conversacional continuo por voz.
+- **TTS (*Text-to-Speech*) & STT (*Speech-to-Text*):** Conversión de texto a voz hablada (Web Speech `speechSynthesis` con voz masculina `es-CO` y sin emojis) y de voz a texto (`SpeechRecognition`).
+- **Modo *Half-Duplex* & *Barge-In*:** *Half-duplex* silencia el micrófono mientras Eder habla para evitar eco/retroalimentación; *Barge-In* permite al usuario interrumpir manualmente la locución actual para hablar de inmediato.
+- **`uv` / `uv.lock`:** Gestor moderno de paquetes y entornos de Python en Rust; `uv.lock` fija versiones exactas y reproducibles para todo el equipo y CI.
+- **Ruff & `ty`:** Herramientas de Astral para formateo/linting ultrarrápido (`Ruff`) y verificación estática de tipos (`ty`, equivalente moderno a mypy/pyright) respaldado por el marcador PEP 561 `py.typed`.
+- **Conventional Commits:** Estándar de mensajes de commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`) que mantiene trazabilidad limpia y facilita auditorías y *changelogs*.
+
