@@ -156,4 +156,3 @@
 - **`uv` / `uv.lock`:** Gestor moderno de paquetes y entornos de Python en Rust; `uv.lock` fija versiones exactas y reproducibles para todo el equipo y CI.
 - **Ruff & `ty`:** Herramientas de Astral para formateo/linting ultrarrápido (`Ruff`) y verificación estática de tipos (`ty`, equivalente moderno a mypy/pyright) respaldado por el marcador PEP 561 `py.typed`.
 - **Conventional Commits:** Estándar de mensajes de commit (`feat:`, `fix:`, `docs:`, `test:`, `chore:`) que mantiene trazabilidad limpia y facilita auditorías y *changelogs*.
-
