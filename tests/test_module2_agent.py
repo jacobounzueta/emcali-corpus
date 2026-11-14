@@ -328,3 +328,25 @@ def test_fastapi_endpoints_and_retrieval_metrics() -> None:
 
     eval_metrics = evaluate_retrieval_mode(vs, search_mode="hybrid", queries=())
     assert eval_metrics["queries_evaluated"] == 0
+
+
+def test_router_blocks_off_topic_math_and_python_queries() -> None:
+    """Verifica que la compuerta Noul rechaza consultas de cálculo o programación sin alucinar."""
+    vs = EmcaliQdrantVectorStore(in_memory=True, chunks=_sample_chunks())
+    mem = MemoryManager(checkpoints_path=":memory:", store_path=":memory:")
+    agent = EmcaliConversationalAgent(vector_store=vs, memory_manager=mem)
+
+    for query in (
+        "¿Cuál es la derivada de arctan(x)?",
+        "¿Cómo simular y graficar esa función en python?",
+    ):
+        decision = route_query_with_jev(query)
+        assert decision.choice == "direct_reply"
+        assert decision.noul_triggered is True
+        assert decision.box.is_out_of_scope_or_private is True
+
+        out = agent.invoke_turn(query, thread_id="test-offtopic", user_id="test-user", use_llm=True)
+        assert "EMCALI" in out.answer
+        assert "1 / (1 + x" not in out.answer
+        assert "matplotlib" not in out.answer.lower()
+        assert "3.120" not in out.answer
