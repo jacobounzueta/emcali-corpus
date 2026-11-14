@@ -24,7 +24,14 @@ data/errors.jsonl
 data/seeds.json
 data/knowledge_base.md
 data/chunks.jsonl
+data/qdrant/
+data/memory/
 capture-all.log
+
+# Frontend (React + Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
 
 # Configuraciones locales de agentes e índices de búsqueda
 .tgrep/
