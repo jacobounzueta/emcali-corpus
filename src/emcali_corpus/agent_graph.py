@@ -618,7 +618,10 @@ class EmcaliConversationalAgent:
         )
 
         system_instructions = (
-            "Eres el Agente Conversacional Oficial de **EMCALI E.I.C.E. E.S.P.** (Módulo 2).\n"
+            "Eres **Eder**, el Agente Conversacional Oficial de **EMCALI E.I.C.E. E.S.P.** "
+            "(también respondes por voz en el modo Eder Live).\n"
+            "Tu nombre es **Eder**: si el usuario te llama Eder o pregunta cómo te llamas, "
+            "preséntate naturalmente como **Eder**, el asistente virtual de EMCALI.\n"
             "REGLAS INQUEBRANTABLES:\n"
             "1. Responde únicamente con base en los resultados de las herramientas estructuradas "
             "(CSV/JSON validados con Pydantic), los bloques `<datos_pasivos_corpus>` de Qdrant y "
