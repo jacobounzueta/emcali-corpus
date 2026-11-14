@@ -890,8 +890,14 @@ export default function App() {
       <header className="bg-[#003B71] text-white shadow-md sticky top-0 z-30 border-b-4 border-[#00875A]">
         <div className="max-w-[1440px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#00875A] to-[#00A8E8] flex items-center justify-center shadow-inner border border-white/20">
-              <Bot className="w-6 h-6 text-white" />
+            <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center border border-white/25 overflow-visible">
+              <img
+                src="/eder-avatar.jpg"
+                alt="Eder caricatura"
+                className={`h-10 w-10 rounded-full object-cover shadow-md border-2 border-emerald-300 transition-transform ${
+                  isStreaming ? "eder-orbit" : ""
+                }`}
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -1133,33 +1139,54 @@ export default function App() {
                 </p>
               </div>
             ) : (
-              messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex flex-col ${
-                    msg.role === "user" ? "items-end" : "items-start"
-                  }`}
-                >
+              messages.map((msg, i) => {
+                const isLastStreamingAssistant =
+                  msg.role === "assistant" && isStreaming && i === messages.length - 1;
+                return (
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs sm:text-[13px] leading-relaxed shadow-xs ${
-                      msg.role === "user"
-                        ? "bg-[#003B71] text-white whitespace-pre-wrap"
-                        : "bg-slate-50 border border-slate-200 text-slate-800"
+                    key={i}
+                    className={`flex items-start gap-2.5 ${
+                      msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {msg.voiceHotword && (
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-sky-200 mb-1">
-                        🎙️ {msg.voiceHotword}
+                    {msg.role === "assistant" && (
+                      <div className="shrink-0 w-10 h-10 flex items-center justify-center mt-1">
+                        <img
+                          src="/eder-avatar.jpg"
+                          alt="Eder"
+                          className={`w-8 h-8 rounded-full object-cover border-2 ${
+                            isLastStreamingAssistant
+                              ? "border-[#00875A] shadow-md eder-orbit"
+                              : "border-slate-300"
+                          }`}
+                        />
                       </div>
                     )}
-                    {msg.role === "assistant"
-                      ? renderMarkdownContent(
-                          msg.content || (isStreaming ? "Consultando información oficial..." : "")
-                        )
-                      : msg.content}
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs sm:text-[13px] leading-relaxed shadow-xs ${
+                        msg.role === "user"
+                          ? "bg-[#003B71] text-white whitespace-pre-wrap"
+                          : "bg-slate-50 border border-slate-200 text-slate-800"
+                      }`}
+                    >
+                      {msg.voiceHotword && (
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-sky-200 mb-1">
+                          🎙️ {msg.voiceHotword}
+                        </div>
+                      )}
+                      {isLastStreamingAssistant && !msg.content ? (
+                        <span className="text-slate-500 italic">
+                          Eder está generando la respuesta...
+                        </span>
+                      ) : msg.role === "assistant" ? (
+                        renderMarkdownContent(msg.content)
+                      ) : (
+                        msg.content
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
             <div ref={chatEndRef} />
           </div>
