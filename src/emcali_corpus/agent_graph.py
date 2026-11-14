@@ -493,7 +493,7 @@ class EmcaliConversationalAgent:
         decision_dict = state.get("router_decision", {})
         box = decision_dict.get("box", {})
         sec_filter = state.get("section_filter") or box.get("section_filter")
-        top_k = int(state.get("top_k") or 4)
+        top_k = int(state.get("top_k") or 6)
         raw_mode = state.get("search_mode", "hybrid")
         search_mode: Literal["hybrid", "dense", "lexical"] = (
             raw_mode if raw_mode in ("hybrid", "dense", "lexical") else "hybrid"
@@ -711,7 +711,7 @@ class EmcaliConversationalAgent:
         user_id: str = "ciudadano-cali",
         section_filter: str | None = None,
         search_mode: Literal["hybrid", "dense", "lexical"] = "hybrid",
-        top_k: int = 4,
+        top_k: int = 6,
         use_llm: bool = True,
     ) -> AgentTurnOutput:
         """Ejecuta un turno completo en el grafo persistiendo estado en SqliteSaver y Store."""
@@ -757,7 +757,7 @@ class EmcaliConversationalAgent:
         user_id: str = "ciudadano-cali",
         section_filter: str | None = None,
         search_mode: Literal["hybrid", "dense", "lexical"] = "hybrid",
-        top_k: int = 4,
+        top_k: int = 6,
         use_llm: bool = True,
     ) -> Iterator[dict[str, Any]]:
         """Ejecuta el turno y transmite eventos SSE de telemetría seguidos de chunks de texto."""
