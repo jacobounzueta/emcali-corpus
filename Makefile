@@ -5,7 +5,7 @@ CLI := $(UV) run emcali-corpus
 .DEFAULT_GOAL := help
 
 .PHONY: help install dev pre-commit-install sync install-browsers capture capture-all capture-sections discover \
-	index reprocess status list chunk app evaluate lint format format-check typecheck test check pre-commit build \
+	index reprocess status list chunk app api frontend evaluate evaluate-retrieval lint format format-check typecheck test check pre-commit build \
 	clean-bronze clean-data clean
 
 help: ## Muestra esta ayuda
@@ -52,11 +52,20 @@ list: ## Lista los documentos indexados
 chunk: ## Consolida la base de conocimiento limpia y genera los chunks
 	$(CLI) chunk
 
-app: ## Inicia el dashboard interactivo de Streamlit (Taller 1)
+app: ## Inicia el dashboard interactivo de Streamlit (Legado Taller 1)
 	$(UV) run streamlit run app.py
+
+api: ## Inicia el backend FastAPI del agente conversacional (Módulo 2)
+	$(UV) run fastapi dev api/main.py
+
+frontend: ## Inicia el frontend propio React + Vite (Módulo 2)
+	npm --prefix frontend run dev
 
 evaluate: ## Ejecuta la batería de 22 preguntas de prueba y genera docs/evaluacion_preguntas.md
 	$(CLI) evaluate
+
+evaluate-retrieval: ## Evalúa Recall@10 y nDCG@10 en Qdrant sobre 25 consultas (Módulo 2)
+	$(CLI) evaluate-retrieval
 
 lint: ## Ejecuta Ruff sobre el código
 	$(UV) run ruff check .
