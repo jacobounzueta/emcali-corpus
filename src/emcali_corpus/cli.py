@@ -250,6 +250,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="archivo Markdown donde guardar los resultados",
     )
 
+    eval_ret = subparsers.add_parser(
+        "evaluate-retrieval",
+        help=(
+            "Evalúa Recall@10, MRR@10 y nDCG@10 en Qdrant sobre 25 consultas etiquetadas "
+            "(Módulo 2)."
+        ),
+    )
+    eval_ret.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="archivo Markdown donde guardar el informe de retrieval",
+    )
+
     return parser
 
 
@@ -509,6 +523,26 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_evaluate_retrieval(args: argparse.Namespace) -> int:
+    from emcali_corpus.retrieval_eval import (
+        RETRIEVAL_REPORT_PATH,
+        run_full_retrieval_benchmark,
+    )
+
+    out_path = args.output or RETRIEVAL_REPORT_PATH
+    summary = run_full_retrieval_benchmark(output_path=out_path)
+    hyb = summary["modes"]["hybrid"]
+    print(
+        f"Retrieval Híbrido Qdrant ({hyb['queries_evaluated']} consultas): "
+        f"Recall@5={hyb['recall_at_5'] * 100:.1f}% · "
+        f"Recall@10={hyb['recall_at_10'] * 100:.1f}% · "
+        f"MRR@10={hyb['mrr_at_10']:.3f} · "
+        f"nDCG@10={hyb['ndcg_at_10']:.3f}"
+    )
+    print(f"Reporte guardado en: {out_path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     _configure_stdout()
     parser = _build_parser()
@@ -525,6 +559,7 @@ def main(argv: list[str] | None = None) -> int:
         "summarize": _cmd_summarize,
         "faq": _cmd_faq,
         "evaluate": _cmd_evaluate,
+        "evaluate-retrieval": _cmd_evaluate_retrieval,
     }
     return handlers[args.command](args)
 
