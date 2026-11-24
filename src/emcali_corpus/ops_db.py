@@ -976,7 +976,14 @@ class EmcaliOpsDatabase:
         params.append(limit)
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT * FROM emcali_news {where} ORDER BY scraped_at DESC LIMIT ?",
+                f"""
+                SELECT * FROM emcali_news {where}
+                ORDER BY
+                    CASE WHEN fecha_publicacion GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+                         THEN fecha_publicacion ELSE '0000-00-00' END DESC,
+                    scraped_at DESC
+                LIMIT ?
+                """,
                 params,
             ).fetchall()
         out: list[dict[str, Any]] = []

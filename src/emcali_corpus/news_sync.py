@@ -113,7 +113,12 @@ def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[
                             body_candidate = parts[2]
                     body_text = body_candidate.strip()
             title = str(item.get("title", "")).strip()
-            if not title or len(body_text) < 40:
+            if (
+                not title
+                or len(body_text) < 40
+                or title.lower()
+                in {"noticias", "portal de proveedores", "noticias cortes detalle"}
+            ):
                 continue
             url = (
                 str(item.get("url") or item.get("source_url") or "").strip()

@@ -676,7 +676,7 @@ class EmcaliConversationalAgent:
                 "- **Tarifas y simulador:** calcula facturas y compara trimestres.\n"
                 "- **Consulta de PQRS y fallas abiertas (IAM/RBAC):**\n"
                 "  * Si el rol activo es `manager`, invoca `generar_resumen_ejecutivo_operaciones` "
-                "para entregar el conteo real de PQRS abiertas, fallas, hotspots y mantenimientos.\n"
+                "para entregar el conteo real de PQRS, fallas, hotspots y mantenimientos.\n"
                 "  * Si el rol activo es `citizen`, explica que el tablero global de PQRS está "
                 "restringido al **Chatbot de Gestión EMCALI (RBAC)**, pero que SÍ puedes consultar "
                 "sus radicados personales con `consultar_estado_radicado` o `listar_mis_radicados` "
