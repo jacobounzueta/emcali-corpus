@@ -218,3 +218,22 @@ def test_m3_fastapi_endpoints_rbac_and_map(isolated_ops_db: EmcaliOpsDatabase) -
     assert off_dec.choice == "direct_reply"
     assert off_dec.noul_triggered is True
     assert off_dec.box.is_out_of_scope_or_private is True
+
+    # Validación estricta de barrios de cobertura EMCALI (Manhattan no existe en Cali)
+    from emcali_corpus.cali_geo import try_resolve_cali_location
+    from emcali_corpus.tools_m3 import consultar_afectacion_por_barrio
+
+    assert try_resolve_cali_location("Manhattan") is None
+    res_manhattan = consultar_afectacion_por_barrio.invoke({"barrio": "Manhattan"})
+    assert res_manhattan["barrio_valido_emcali"] is False
+    assert res_manhattan["error"] == "BARRIO_NO_RECONOCIDO"
+    with pytest.raises(ValueError, match="no existe"):
+        isolated_ops_db.create_failure_report(
+            FailureReportCreateRequest(
+                servicio="energia",
+                identificador_tipo="cedula",
+                identificador_valor="12345678",
+                barrio="Manhattan",
+                descripcion="Corte de luz en barrio inexistente.",
+            )
+        )

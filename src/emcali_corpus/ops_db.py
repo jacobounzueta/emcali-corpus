@@ -17,7 +17,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from emcali_corpus import config
-from emcali_corpus.cali_geo import resolve_cali_location
+from emcali_corpus.cali_geo import try_resolve_cali_location
 
 OPS_DIR = config.DATA_DIR / "ops"
 OPS_DB_PATH = OPS_DIR / "emcali_ops.sqlite"
@@ -516,7 +516,13 @@ class EmcaliOpsDatabase:
     # PQRS
     # ------------------------------------------------------------------
     def create_pqrs(self, req: PqrsCreateRequest) -> dict[str, Any]:
-        loc = resolve_cali_location(req.barrio)
+        loc = try_resolve_cali_location(req.barrio)
+        if loc is None:
+            raise ValueError(
+                f"El barrio '{req.barrio}' no figura en la cobertura oficial de EMCALI "
+                "(Cali Comunas 1-22, Yumbo, Jamundí, Candelaria y Puerto Tejada). "
+                "Por favor verifica el barrio o indica la comuna."
+            )
         now = utc_now_iso()
         radicado_id = f"PQRS-2026-{uuid.uuid4().hex[:6].upper()}"
         prioridad = "Alta" if req.tipo in {"Reclamo", "Queja"} else "Normal"
@@ -618,7 +624,13 @@ class EmcaliOpsDatabase:
     # Reportes de Fallas y Detección de Hotspots para Brigadas
     # ------------------------------------------------------------------
     def create_failure_report(self, req: FailureReportCreateRequest) -> dict[str, Any]:
-        loc = resolve_cali_location(f"{req.barrio} {req.direccion}")
+        loc = try_resolve_cali_location(f"{req.barrio} {req.direccion}")
+        if loc is None:
+            raise ValueError(
+                f"El barrio '{req.barrio}' no existe en el catálogo de cobertura de EMCALI "
+                "(Cali Comunas 1-22, Yumbo, Jamundí, Candelaria y Puerto Tejada). "
+                "Verifica el nombre del barrio o indica tu comuna."
+            )
         now = utc_now_iso()
         reporte_id = f"FALLA-2026-{uuid.uuid4().hex[:6].upper()}"
         barrio_name = loc.barrio if loc.barrio != "Cali (Centro)" else req.barrio.strip()
@@ -747,7 +759,11 @@ class EmcaliOpsDatabase:
     # Mantenimientos Oficiales & Mapa de Cali
     # ------------------------------------------------------------------
     def create_maintenance_point(self, req: MaintenanceCreateRequest) -> dict[str, Any]:
-        loc = resolve_cali_location(req.barrio)
+        loc = try_resolve_cali_location(req.barrio)
+        if loc is None:
+            raise ValueError(
+                f"El barrio '{req.barrio}' no figura en la cobertura oficial de EMCALI."
+            )
         now = utc_now_iso()
         maint_id = f"MANT-2026-{uuid.uuid4().hex[:6].upper()}"
         barrio_name = loc.barrio if loc.barrio != "Cali (Centro)" else req.barrio.strip()
@@ -795,8 +811,10 @@ class EmcaliOpsDatabase:
         created_by: str = "gerencia",
     ) -> dict[str, Any]:
         """Promueve un hotspot de fallas a mantenimiento oficial y asigna brigada."""
-        loc = resolve_cali_location(barrio)
-        target_barrio = loc.barrio if loc.barrio != "Cali (Centro)" else barrio.strip()
+        loc = try_resolve_cali_location(barrio)
+        if loc is None:
+            raise ValueError(f"El barrio '{barrio}' no figura en la cobertura oficial de EMCALI.")
+        target_barrio = loc.barrio
         maint = self.create_maintenance_point(
             MaintenanceCreateRequest(
                 titulo=(f"Despliegue de brigada por fallas ({servicio}) — {target_barrio}"),

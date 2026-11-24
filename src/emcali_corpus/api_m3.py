@@ -240,7 +240,10 @@ def get_cali_map_overview(
 @router.post("/pqrs")
 def create_pqrs_endpoint(payload: PqrsCreateRequest) -> dict[str, Any]:
     db = get_ops_db()
-    return {"status": "radicado", "ticket": db.create_pqrs(payload)}
+    try:
+        return {"status": "radicado", "ticket": db.create_pqrs(payload)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/pqrs")
@@ -279,7 +282,10 @@ def update_pqrs_endpoint(
 @router.post("/failures")
 def create_failure_endpoint(payload: FailureReportCreateRequest) -> dict[str, Any]:
     db = get_ops_db()
-    return {"status": "reported", "report": db.create_failure_report(payload)}
+    try:
+        return {"status": "reported", "report": db.create_failure_report(payload)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/failures")
@@ -306,7 +312,10 @@ def create_maintenance_endpoint(
     username = _require_manager(authorization)
     db = get_ops_db()
     enriched = payload.model_copy(update={"created_by": username, "fuente": "gestion_emcali"})
-    return {"status": "activated", "maintenance": db.create_maintenance_point(enriched)}
+    try:
+        return {"status": "activated", "maintenance": db.create_maintenance_point(enriched)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/maintenances/dispatch")

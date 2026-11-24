@@ -7,7 +7,7 @@ from typing import Any, Literal
 from langchain_core.tools import BaseTool, tool
 from pydantic import BaseModel, Field
 
-from emcali_corpus.cali_geo import resolve_cali_location
+from emcali_corpus.cali_geo import try_resolve_cali_location
 from emcali_corpus.memory import (
     get_memory_manager,
     search_user_long_term_memories,
@@ -305,13 +305,28 @@ def listar_mantenimientos_activos(
 def consultar_afectacion_por_barrio(barrio: str) -> dict[str, Any]:
     """Verifica mantenimientos oficiales y reportes ciudadanos de fallas en un barrio de Cali."""
     db = get_ops_db()
-    loc = resolve_cali_location(barrio)
-    target = loc.barrio if loc.barrio != "Cali (Centro)" else barrio.strip()
+    loc = try_resolve_cali_location(barrio)
+    if loc is None:
+        return {
+            "barrio_consultado": barrio.strip(),
+            "barrio_valido_emcali": False,
+            "error": "BARRIO_NO_RECONOCIDO",
+            "message": (
+                f"El barrio '{barrio.strip()}' no existe en el catálogo oficial de cobertura "
+                "de EMCALI (Cali Comunas 1-22, Yumbo, Jamundí, Candelaria y Puerto Tejada). "
+                "Por favor verifica el nombre del barrio o indica tu comuna."
+            ),
+            "mantenimientos_activos": [],
+            "reportes_falla_abiertos": 0,
+            "tiene_afectacion": False,
+        }
+    target = loc.barrio
     maint = db.list_maintenance_points(barrio=target, solo_activos=True)
     failures = db.list_failure_reports(barrio=target, limit=25)
     open_failures = [f for f in failures if f["estado"] != "Resuelto"]
     return {
         "barrio_consultado": target,
+        "barrio_valido_emcali": True,
         "comuna": loc.comuna,
         "coordenadas": {"lat": loc.lat, "lng": loc.lng},
         "mantenimientos_activos": maint,
@@ -717,5 +732,13 @@ def execute_tool_with_rbac(
         }
 
     tool_fn = TOOL_BY_NAME[tool_name]
-    result = tool_fn.invoke(arguments)
+    try:
+        result = tool_fn.invoke(arguments)
+    except ValueError as exc:
+        return {
+            "ok": False,
+            "error": "VALIDATION_ERROR",
+            "tool_name": tool_name,
+            "message": str(exc),
+        }
     return {"ok": True, "status": "executed", "tool_name": tool_name, "result": result}

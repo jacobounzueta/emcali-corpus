@@ -134,11 +134,11 @@ _INDEX_BY_NORM: dict[str, CaliLocation] = {_norm(loc.barrio): loc for loc in CAL
 _COMUNA_RE = re.compile(r"\bcomuna\s+(\d{1,2})\b", re.IGNORECASE)
 
 
-def resolve_cali_location(text: str) -> CaliLocation:
-    """Resuelve un barrio, comuna o dirección de Cali a coordenadas WGS84 verificadas."""
+def try_resolve_cali_location(text: str) -> CaliLocation | None:
+    """Resuelve un barrio/comuna/municipio de cobertura EMCALI o devuelve None si no existe."""
     norm_text = _norm(text)
     if not norm_text:
-        return DEFAULT_CALI_CENTER
+        return None
 
     # Coincidencia exacta
     if norm_text in _INDEX_BY_NORM:
@@ -149,15 +149,22 @@ def resolve_cali_location(text: str) -> CaliLocation:
         if len(key) >= 4 and key in norm_text:
             return _INDEX_BY_NORM[key]
 
-    # Coincidencia por número de comuna
+    # Coincidencia por número de comuna (1 a 22 en Cali)
     match_comuna = _COMUNA_RE.search(norm_text)
     if match_comuna:
-        target_comuna = f"Comuna {int(match_comuna.group(1))}"
-        for loc in CALI_LOCATIONS:
-            if loc.comuna.lower() == target_comuna.lower():
-                return loc
+        comuna_num = int(match_comuna.group(1))
+        if 1 <= comuna_num <= 22:
+            target_comuna = f"Comuna {comuna_num}"
+            for loc in CALI_LOCATIONS:
+                if loc.comuna.lower() == target_comuna.lower():
+                    return loc
 
-    return DEFAULT_CALI_CENTER
+    return None
+
+
+def resolve_cali_location(text: str) -> CaliLocation:
+    """Resuelve un barrio/comuna de Cali o cae al centro de Cali solo si se solicita fallback."""
+    return try_resolve_cali_location(text) or DEFAULT_CALI_CENTER
 
 
 def detect_barrios_in_text(text: str, *, limit: int = 8) -> list[CaliLocation]:
