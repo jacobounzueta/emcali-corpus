@@ -205,3 +205,16 @@ def test_m3_fastapi_endpoints_rbac_and_map(isolated_ops_db: EmcaliOpsDatabase) -
     assert body["router_decision"]["choice"] == "m3_ops_tool"
     assert "contrato" in body["answer"].lower()
     assert "cédula" in body["answer"].lower()
+
+    # Filtro semántico de relevancia de dominio (off-topic bloqueado vía Noul)
+    from emcali_corpus.router import compute_domain_relevance_score, route_query_with_jev
+
+    off_score = compute_domain_relevance_score("¿Cuál es la derivada del coseno?")
+    on_score = compute_domain_relevance_score(
+        "¿Cuál es la tarifa de energía eléctrica de EMCALI en estrato 3?"
+    )
+    assert on_score > off_score
+    off_dec = route_query_with_jev("¿Cuál es la derivada del coseno?")
+    assert off_dec.choice == "direct_reply"
+    assert off_dec.noul_triggered is True
+    assert off_dec.box.is_out_of_scope_or_private is True

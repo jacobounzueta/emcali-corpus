@@ -2,10 +2,41 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from emcali_corpus.vector_store import compute_dense_embedding
+
+EMCALI_DOMAIN_PROTOTYPES: tuple[str, ...] = (
+    "EMCALI servicios públicos domiciliarios Cali energía eléctrica kWh transformadores circuitos tarifas subsidios estrato",
+    "EMCALI acueducto agua potable alcantarillado tuberías fugas presión embalse PTAR Cañaveralejo m3",
+    "EMCALI telecomunicaciones telco fibra óptica internet Mbps planes soporte técnico enredos",
+    "EMCALI atención ciudadanía PQRS petición queja reclamo sugerencia radicado contrato cédula factura PSE línea 177",
+    "EMCALI mantenimientos reparaciones cortes programados fallas brigadas mapa barrios comunas Cali noticias boletín",
+    "EMCALI transparencia normatividad Ley 1581 protección datos personales sostenibilidad gerente Roger Mina indicadores",
+)
+
+_PROTOTYPE_VECTORS: tuple[list[float], ...] = tuple(
+    compute_dense_embedding(proto) for proto in EMCALI_DOMAIN_PROTOTYPES
+)
+
+
+def compute_domain_relevance_score(question: str) -> float:
+    """Mide la similitud coseno [0.0, 1.0] entre la consulta y los prototipos del dominio EMCALI."""
+    q = question.strip()
+    if not q:
+        return 0.0
+    q_vec = compute_dense_embedding(q)
+    best = 0.0
+    for p_vec in _PROTOTYPE_VECTORS:
+        dot = sum(a * b for a, b in zip(q_vec, p_vec, strict=True))
+        if dot > best:
+            best = dot
+    return round(max(0.0, min(1.0, math.sqrt(max(0.0, best)))), 4)
+
 
 RouteChoice = Literal[
     "direct_reply",
@@ -228,6 +259,12 @@ class JevBoxExtraction(BaseModel):
     is_user_memory_operation: bool = Field(default=False)
     is_out_of_scope_or_private: bool = Field(default=False)
     is_security_canary_probe: bool = Field(default=False)
+    domain_relevance_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Similitud semántica coseno entre la consulta y el propósito de EMCALI.",
+    )
 
 
 class JevRouterDecision(BaseModel):
@@ -323,8 +360,19 @@ def _extract_box(question: str) -> JevBoxExtraction:
     is_mem_intro = any(p.search(lowered) for p in SELF_MEMORY_Intro_PATTERNS) and "?" not in lowered
     is_mem_query = any(p.search(lowered) for p in SELF_MEMORY_QUERY_PATTERNS)
     has_domain_anchor = any(anchor in lowered for anchor in EMCALI_DOMAIN_ANCHORS)
-    is_out = any(p.search(lowered) for p in OUT_OF_SCOPE_PATTERNS) or (
-        bool(OFF_TOPIC_GENERAL_PATTERN.search(lowered)) and not has_domain_anchor
+    relevance_score = compute_domain_relevance_score(question)
+    is_semantic_off_topic = (
+        not is_greeting
+        and not is_mem_intro
+        and not is_mem_query
+        and not has_domain_anchor
+        and len(lowered.split()) >= 3
+        and relevance_score < 0.18
+    )
+    is_out = (
+        any(p.search(lowered) for p in OUT_OF_SCOPE_PATTERNS)
+        or (bool(OFF_TOPIC_GENERAL_PATTERN.search(lowered)) and not has_domain_anchor)
+        or is_semantic_off_topic
     )
     is_canary = any(
         k in lowered
@@ -348,6 +396,7 @@ def _extract_box(question: str) -> JevBoxExtraction:
         is_user_memory_operation=is_mem_intro or is_mem_query,
         is_out_of_scope_or_private=is_out,
         is_security_canary_probe=is_canary,
+        domain_relevance_score=relevance_score,
     )
 
 
