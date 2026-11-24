@@ -108,12 +108,15 @@ M3_OPS_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"\b(reportar\s+(?:una?\s+)?(?:falla|da[nñ]o|fuga|corte|aver[ií]a)|"
         r"no\s+tengo\s+(?:agua|luz|energ[ií]a|internet|fibra)|"
         r"estado\s+de\s+(?:mi\s+)?radicado|mis\s+radicados|pqrs-2026-|falla-2026-|"
+        r"(?:hay|hab[ií]an?|cu[aá]ntas?|ver|listar|mostrar|consultar)\s+(?:las\s+)?"
+        r"(?:pqrs?|quejas|reclamos|fallas|reportes|mantenimientos|hotspots)(?:\s+abiert[oa]s?)?|"
+        r"(?:pqrs?|fallas|reportes)\s+abiert[oa]s?|"
         r"mantenimientos?\s+activos?|reparaciones?\s+y\s+mantenimientos?|"
         r"cortes?\s+en\s+|afectaci[oó]n\s+en\s+|"
         r"[uú]ltimas?\s+noticias?|noticias?\s+de\s+emcali|"
         r"bolet[ií]n\s+diario|suscrib(?:ir|eme)\s+al\s+bolet[ií]n|"
         r"simular\s+(?:mi\s+)?factura|activar\s+(?:un\s+)?(?:punto\s+de\s+)?mantenimiento|"
-        r"despachar\s+brigada|asignar\s+brigada|resumen\s+ejecutivo)\b",
+        r"despachar\s+brigada|asignar\s+brigada|resumen\s+ejecutivo|brigadas?\b)\b",
         re.IGNORECASE,
     ),
 )

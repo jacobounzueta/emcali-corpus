@@ -75,10 +75,18 @@ const UMAP_SECTION_COLORS: Record<string, string> = {
 
 export const M3OperationsSuite: React.FC = () => {
   const [subTab, setSubTab] = useState<"map" | "pqrs" | "news" | "umap_tools" | "iam">("map");
-  const [session, setSession] = useState<AuthSession>({
-    authenticated: false,
-    role: "citizen",
-    display_name: "Ciudadano (Acceso Público)",
+  const [session, setSession] = useState<AuthSession>(() => {
+    try {
+      const saved = localStorage.getItem("emcali_auth_session");
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return {
+      authenticated: false,
+      role: "citizen",
+      display_name: "Ciudadano (Acceso Público)",
+    };
   });
   const [loginUser, setLoginUser] = useState("rommel");
   const [loginPass, setLoginPass] = useState("emcali-ops-2026");
@@ -257,22 +265,28 @@ export const M3OperationsSuite: React.FC = () => {
       return;
     }
     const data = await res.json();
-    setSession({
+    const nextSession: AuthSession = {
       authenticated: true,
       token: data.token,
       username: data.username,
       display_name: data.display_name,
       role: data.role,
-    });
+    };
+    setSession(nextSession);
+    localStorage.setItem("emcali_auth_session", JSON.stringify(nextSession));
+    window.dispatchEvent(new Event("emcali-auth-changed"));
     setStatusMsg(`✅ Sesión activa: ${data.display_name} (${data.role.toUpperCase()})`);
   };
 
   const handleLogout = () => {
-    setSession({
+    const guest: AuthSession = {
       authenticated: false,
       role: "citizen",
       display_name: "Ciudadano (Acceso Público)",
-    });
+    };
+    setSession(guest);
+    localStorage.removeItem("emcali_auth_session");
+    window.dispatchEvent(new Event("emcali-auth-changed"));
     setStatusMsg("🔄 Modo Ciudadano activo (herramientas de gestión bloqueadas por RBAC).");
   };
 

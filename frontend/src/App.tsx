@@ -162,6 +162,46 @@ function renderMarkdownContent(content: string): React.ReactNode {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"chat" | "ops" | "xray" | "eval" | "arch">("chat");
+  const [authRole, setAuthRole] = useState<"citizen" | "manager">(() => {
+    try {
+      const saved = localStorage.getItem("emcali_auth_session");
+      if (saved && JSON.parse(saved).role === "manager") return "manager";
+    } catch {
+      // ignore
+    }
+    return "citizen";
+  });
+
+  useEffect(() => {
+    const syncAuth = () => {
+      try {
+        const saved = localStorage.getItem("emcali_auth_session");
+        setAuthRole(saved && JSON.parse(saved).role === "manager" ? "manager" : "citizen");
+      } catch {
+        setAuthRole("citizen");
+      }
+    };
+    window.addEventListener("emcali-auth-changed", syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener("emcali-auth-changed", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, []);
+
+  const getChatAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    try {
+      const saved = localStorage.getItem("emcali_auth_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.token) headers["Authorization"] = `Bearer ${parsed.token}`;
+      }
+    } catch {
+      // ignore
+    }
+    return headers;
+  };
   const [health, setHealth] = useState<Record<string, any> | null>(null);
   const [presets, setPresets] = useState<DemoPreset[]>([]);
   const [threadId, setThreadId] = useState<string>("hilo-sustentacion-01");
@@ -511,7 +551,7 @@ export default function App() {
     try {
       const response = await fetch(`${API_BASE}/api/chat/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getChatAuthHeaders(),
         body: JSON.stringify({
           question: qText,
           thread_id: threadId,
@@ -908,6 +948,16 @@ export default function App() {
                 <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/15 text-emerald-200 border border-white/20">
                   Eder · Asistente Virtual
                 </span>
+                <button
+                  onClick={() => setActiveTab("ops")}
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border cursor-pointer transition ${
+                    authRole === "manager"
+                      ? "bg-amber-400 text-slate-950 border-amber-300"
+                      : "bg-white/10 text-sky-100 border-white/20 hover:bg-white/20"
+                  }`}
+                >
+                  {authRole === "manager" ? "🔐 Gestión EMCALI (20 Tools)" : "👤 Ciudadano (16 Tools)"}
+                </button>
               </div>
               <p className="text-xs text-sky-100/90">
                 Energía · Acueducto y Alcantarillado · Telecomunicaciones · Atención Ciudadana
