@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import subprocess
@@ -101,14 +102,12 @@ def _read_whatsapp_allowlist() -> list[str]:
 
 def _reload_openclaw_whatsapp_async() -> None:
     """Reinicia el gateway OpenClaw en segundo plano para aplicar cambios de allowFrom."""
-    try:
+    with contextlib.suppress(OSError):
         subprocess.Popen(
             ["openclaw", "gateway", "restart"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-    except OSError:
-        pass
 
 
 def _write_whatsapp_allowlist(numbers: list[str]) -> list[str]:
