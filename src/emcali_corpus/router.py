@@ -413,7 +413,7 @@ def route_query_with_jev(question: str) -> JevRouterDecision:
             tools_to_invoke=["buscar_corpus_qdrant"],
         )
 
-    # 2b. Operaciones transaccionales y de tiempo real del Módulo 3 (PQRS, fallas, mapa, noticias, RBAC)
+    # 2b. Operaciones en tiempo real del Módulo 3 (PQRS, fallas, mapa, noticias, RBAC)
     if any(p.search(lowered) for p in M3_OPS_PATTERNS):
         return JevRouterDecision(
             choice="m3_ops_tool",

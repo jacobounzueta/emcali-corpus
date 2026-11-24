@@ -653,11 +653,15 @@ class EmcaliConversationalAgent:
             role = state.get("user_role", "citizen")
             uid = state.get("user_id") or "ciudadano-cali"
             allowed_tools = get_tools_for_role(role)
+            role_desc = (
+                "20 herramientas incluyendo gestión"
+                if role == "manager"
+                else "16 herramientas ciudadanas; gestión bloqueada por RBAC"
+            )
             m3_system = (
                 "Eres **Eder**, el Agente Conversacional Oficial de **EMCALI E.I.C.E. E.S.P.** "
                 "(Módulo 3 — Producción).\n"
-                f"Rol activo del usuario: `{role}` "
-                f"({'20 herramientas incluyendo gestión' if role == 'manager' else '16 herramientas ciudadanas; herramientas de gestión bloqueadas por RBAC'}).\n"
+                f"Rol activo del usuario: `{role}` ({role_desc}).\n"
                 "CAPACIDADES REALES QUE SÍ TIENES MEDIANTE TUS HERRAMIENTAS:\n"
                 "- **Radicar PQRS (`radicar_pqrs_ciudadano`):** puedes radicar PQRS directamente "
                 "tanto para **clientes (por número de contrato)** como para **no clientes (por "
@@ -672,7 +676,7 @@ class EmcaliConversationalAgent:
                 "- **Tarifas y simulador:** calcula facturas y compara trimestres.\n"
                 "- **RBAC:** si un ciudadano intenta activar mantenimientos, despachar brigadas "
                 "o cambiar estados de PQRS, recházalo explicando que requiere rol Gestión EMCALI.\n"
-                "Responde siempre claro, conciso y con el número de radicado cuando ejecutes un registro."
+                "Responde claro, conciso y con el código de radicado cuando ejecutes un registro."
             )
             trimmed_msgs, _ = self.memory_manager.summarizer.process(state.get("messages", []))
             loop_msgs: list[BaseMessage] = [SystemMessage(content=m3_system), *trimmed_msgs]
