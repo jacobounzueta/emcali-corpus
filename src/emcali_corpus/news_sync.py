@@ -222,9 +222,10 @@ def build_daily_newsletter_digest(
     ]
     if maint:
         for item in maint[:5]:
+            fecha_rep = str(item.get("inicio_estimado") or item.get("created_at") or "")[:16]
             lines.append(
-                f"• [{item['servicio'].upper()}] *{item['barrio']}* ({item['comuna']}): "
-                f"{item['titulo']} — Brigada: {item['brigada_asignada']}"
+                f"• [{item['servicio'].upper()}] *{item['barrio']}* ({item['comuna']}) — "
+                f"Fecha: `{fecha_rep}`: {item['titulo']} · Brigada: {item['brigada_asignada']}"
             )
     else:
         lines.append("• Sin mantenimientos activos reportados en esta zona.")

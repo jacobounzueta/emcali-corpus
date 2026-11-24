@@ -330,8 +330,8 @@ class EmcaliOpsDatabase:
                             "sobre la Calle 5 con Carrera 34."
                         ),
                         brigada_asignada="Brigada Acueducto Sur-01",
-                        inicio_estimado="08:00",
-                        fin_estimado="16:00",
+                        inicio_estimado=f"{now[:10]} 08:00",
+                        fin_estimado=f"{now[:10]} 16:00",
                         fuente="scraping_emcali",
                     ),
                     MaintenanceCreateRequest(
@@ -343,8 +343,8 @@ class EmcaliOpsDatabase:
                             "en el corredor de la Avenida 3N."
                         ),
                         brigada_asignada="Brigada Energía Norte-03",
-                        inicio_estimado="07:30",
-                        fin_estimado="15:00",
+                        inicio_estimado=f"{now[:10]} 07:30",
+                        fin_estimado=f"{now[:10]} 15:00",
                         fuente="scraping_emcali",
                     ),
                     MaintenanceCreateRequest(
@@ -356,8 +356,8 @@ class EmcaliOpsDatabase:
                             "de 500 y 900 Mbps en Comuna 17."
                         ),
                         brigada_asignada="Brigada Telco Sur-02",
-                        inicio_estimado="09:00",
-                        fin_estimado="14:00",
+                        inicio_estimado=f"{now[:10]} 09:00",
+                        fin_estimado=f"{now[:10]} 14:00",
                         fuente="scraping_emcali",
                     ),
                 ]

@@ -12,10 +12,16 @@
     "defaults": {
       "workspace": "/home/rommel/emcali-corpus/openclaw/workspace",
       "model": {
-        "primary": "deepseek/deepseek-chat"
+        "primary": "deepseek/deepseek-v4-pro",
+        "fallbacks": [
+          "deepseek/deepseek-v4-flash"
+        ]
+      },
+      "heartbeat": {
+        "every": "0m"
       },
       "sandbox": {
-        "mode": "non-main"
+        "mode": "off"
       }
     }
   },
