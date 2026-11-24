@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,28 @@ def _is_maintenance_news(title: str, body: str) -> bool:
     return any(kw in combined for kw in MAINTENANCE_KEYWORDS)
 
 
+_ISO_DATE_RE = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
+_SPANISH_DATE_RE = re.compile(
+    r"\b(\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|"
+    r"septiembre|octubre|noviembre|diciembre)(?:\s+de\s+20\d{2})?)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_publication_date(item: dict[str, Any], raw_md: str, body_text: str) -> str:
+    for key in ("lastmod", "published_at", "captured_at"):
+        val = str(item.get(key, "") or "").strip()
+        if val:
+            return val[:10]
+    m_iso = _ISO_DATE_RE.search(raw_md[:600])
+    if m_iso:
+        return m_iso.group(1)
+    m_es = _SPANISH_DATE_RE.search(body_text[:500])
+    if m_es:
+        return m_es.group(1)
+    return "2026-11-24"
+
+
 def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[str, Any]]:
     """Lee las noticias curadas desde data/gold/corpus.jsonl y sus archivos Markdown."""
     if not corpus_path.is_file():
@@ -73,6 +96,7 @@ def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[
             item = json.loads(raw)
             if str(item.get("section", "")).lower() != "noticias":
                 continue
+            raw_md = ""
             body_text = str(item.get("description", "")).strip()
             gold_rel = str(item.get("gold_path", "")).strip()
             if gold_rel:
@@ -81,12 +105,13 @@ def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[
                     md_path = config.DATA_DIR / gold_rel
                 if md_path.is_file():
                     raw_md = md_path.read_text(encoding="utf-8", errors="replace")
+                    body_candidate = raw_md
                     # Quitar frontmatter YAML si existe
-                    if raw_md.startswith("---"):
-                        parts = raw_md.split("---", 2)
+                    if body_candidate.startswith("---"):
+                        parts = body_candidate.split("---", 2)
                         if len(parts) == 3:
-                            raw_md = parts[2]
-                    body_text = raw_md.strip()
+                            body_candidate = parts[2]
+                    body_text = body_candidate.strip()
             title = str(item.get("title", "")).strip()
             if not title or len(body_text) < 40:
                 continue
@@ -99,7 +124,7 @@ def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[
                     "slug": str(item.get("slug", "")),
                     "title": title,
                     "url": url,
-                    "date": str(item.get("lastmod", "") or item.get("captured_at", ""))[:10],
+                    "date": _extract_publication_date(item, raw_md, body_text),
                     "summary": body_text[:280].replace("\n", " ").strip(),
                     "content": body_text[:3000],
                 }
@@ -156,6 +181,8 @@ def sync_news_from_gold(
                             barrio=primary_loc.barrio,
                             descripcion=rec["summary"][:400],
                             brigada_asignada="Brigada EMCALI (Portal Noticias)",
+                            inicio_estimado=rec["date"],
+                            fin_estimado="Según avance técnico",
                             fuente="scraping_emcali",
                             fuente_url=rec["url"],
                             created_by="news-sync-pipeline",

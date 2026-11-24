@@ -194,3 +194,14 @@ def test_m3_fastapi_endpoints_rbac_and_map(isolated_ops_db: EmcaliOpsDatabase) -
     )
     assert new_u.status_code == 200
     assert new_u.json()["user"]["username"] == "jacobo"
+
+    # Consulta "Quiero radicar una PQR" debe enrutarse a m3_ops_tool y ofrecer contrato o cédula
+    pqr_chat = client.post(
+        "/api/chat",
+        json={"question": "Quiero radicar una PQR", "use_llm": False},
+    )
+    assert pqr_chat.status_code == 200
+    body = pqr_chat.json()
+    assert body["router_decision"]["choice"] == "m3_ops_tool"
+    assert "contrato" in body["answer"].lower()
+    assert "cédula" in body["answer"].lower()

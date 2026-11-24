@@ -16,6 +16,8 @@ export interface MaintenancePoint {
   brigada_asignada: string;
   inicio_estimado: string;
   fin_estimado: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface FailureHotspot {
@@ -97,9 +99,11 @@ export const CaliMapPanel: React.FC<CaliMapPanelProps> = ({
         fillColor: color,
         fillOpacity: 0.9,
       });
+      const fechaLabel = m.inicio_estimado || (m.created_at ? m.created_at.slice(0, 10) : "Hoy");
       marker.bindPopup(
-        `<div style="font-size:12px;max-width:240px;">
+        `<div style="font-size:12px;max-width:250px;">
           <div style="font-weight:700;color:#003B71;margin-bottom:3px;">🔧 ${m.titulo}</div>
+          <div><b>Fecha / Inicio:</b> ${fechaLabel}${m.fin_estimado ? ` · <b>Fin:</b> ${m.fin_estimado}` : ""}</div>
           <div><b>Barrio:</b> ${m.barrio} (${m.comuna})</div>
           <div><b>Servicio:</b> ${m.servicio.toUpperCase()} · <b>Estado:</b> ${m.estado}</div>
           <div><b>Brigada:</b> ${m.brigada_asignada || "Por asignar"}</div>
@@ -122,9 +126,11 @@ export const CaliMapPanel: React.FC<CaliMapPanelProps> = ({
         fillColor: color,
         fillOpacity: 0.35,
       });
+      const latestDate = h.latest_report_at ? h.latest_report_at.replace("T", " ").slice(0, 16) : "Reciente";
       ring.bindPopup(
-        `<div style="font-size:12px;max-width:240px;">
+        `<div style="font-size:12px;max-width:250px;">
           <div style="font-weight:700;color:${color};margin-bottom:3px;">⚠️ ${h.severity_label}</div>
+          <div><b>Último reporte:</b> ${latestDate} UTC</div>
           <div><b>Barrio:</b> ${h.barrio} (${h.comuna})</div>
           <div><b>Servicio:</b> ${h.servicio.toUpperCase()}</div>
           <div><b>Reportes abiertos:</b> ${h.report_count}</div>

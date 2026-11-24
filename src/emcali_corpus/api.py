@@ -7,7 +7,7 @@ import os
 from collections.abc import Iterator
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,7 @@ from emcali_corpus.agent_graph import (
     EmcaliConversationalAgent,
     get_conversational_agent,
 )
+from emcali_corpus.api_m3 import _resolve_role_and_user
 from emcali_corpus.api_m3 import router as m3_ops_router
 from emcali_corpus.knowledge import SECTION_LABELS
 from emcali_corpus.memory import (
@@ -249,12 +250,17 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         return {"cases": list(DEMO_VALIDATION_CASES)}
 
     @app.post("/api/chat")
-    def chat_turn(payload: ChatRequest) -> dict[str, Any]:
+    def chat_turn(
+        payload: ChatRequest,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        role, _ = _resolve_role_and_user(authorization)
         try:
             turn = _agent().invoke_turn(
                 payload.question,
                 thread_id=payload.thread_id,
                 user_id=payload.user_id,
+                user_role=role,
                 section_filter=payload.section_filter,
                 search_mode=payload.search_mode,
                 top_k=payload.top_k,
@@ -269,15 +275,20 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         return result
 
     @app.post("/api/chat/stream")
-    def chat_stream(payload: ChatRequest) -> StreamingResponse:
+    def chat_stream(
+        payload: ChatRequest,
+        authorization: str | None = Header(default=None),
+    ) -> StreamingResponse:
         if not payload.question.strip():
             raise HTTPException(status_code=400, detail="La consulta no puede estar vacía.")
+        role, _ = _resolve_role_and_user(authorization)
 
         def _event_generator() -> Iterator[str]:
             for packet in _agent().stream_turn_events(
                 payload.question,
                 thread_id=payload.thread_id,
                 user_id=payload.user_id,
+                user_role=role,
                 section_filter=payload.section_filter,
                 search_mode=payload.search_mode,
                 top_k=payload.top_k,

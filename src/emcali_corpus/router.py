@@ -12,6 +12,7 @@ RouteChoice = Literal[
     "structured_tool",
     "rag_search",
     "hybrid_multi_tool",
+    "m3_ops_tool",
 ]
 
 GREETING_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -82,6 +83,39 @@ EMCALI_DOMAIN_ANCHORS: tuple[str, ...] = (
     "gerente",
     "transparencia",
     "sede",
+    "pqrs",
+    "radicar",
+    "queja",
+    "reclamo",
+    "falla",
+    "daño",
+    "mantenimiento",
+    "reparaci",
+    "noticia",
+    "boletín",
+    "boletin",
+    "brigada",
+    "barrio",
+)
+
+M3_OPS_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(radicar|poner|registrar|crear|interponer|presentar)\s+(?:una?\s+)?"
+        r"(pqr|pqrs|queja|reclamo|petici[oó]n|sugerencia|falla|da[nñ]o|fuga|corte)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(reportar\s+(?:una?\s+)?(?:falla|da[nñ]o|fuga|corte|aver[ií]a)|"
+        r"no\s+tengo\s+(?:agua|luz|energ[ií]a|internet|fibra)|"
+        r"estado\s+de\s+(?:mi\s+)?radicado|mis\s+radicados|pqrs-2026-|falla-2026-|"
+        r"mantenimientos?\s+activos?|reparaciones?\s+y\s+mantenimientos?|"
+        r"cortes?\s+en\s+|afectaci[oó]n\s+en\s+|"
+        r"[uú]ltimas?\s+noticias?|noticias?\s+de\s+emcali|"
+        r"bolet[ií]n\s+diario|suscrib(?:ir|eme)\s+al\s+bolet[ií]n|"
+        r"simular\s+(?:mi\s+)?factura|activar\s+(?:un\s+)?(?:punto\s+de\s+)?mantenimiento|"
+        r"despachar\s+brigada|asignar\s+brigada|resumen\s+ejecutivo)\b",
+        re.IGNORECASE,
+    ),
 )
 
 STRUCTURED_KEYWORDS: tuple[str, ...] = (
@@ -377,6 +411,26 @@ def route_query_with_jev(question: str) -> JevRouterDecision:
                 "recuperados de Qdrant con delimitador de datos pasivos."
             ),
             tools_to_invoke=["buscar_corpus_qdrant"],
+        )
+
+    # 2b. Operaciones transaccionales y de tiempo real del Módulo 3 (PQRS, fallas, mapa, noticias, RBAC)
+    if any(p.search(lowered) for p in M3_OPS_PATTERNS):
+        return JevRouterDecision(
+            choice="m3_ops_tool",
+            noul_triggered=False,
+            score=0.96,
+            box=box,
+            rationale=(
+                "Jev Choice=m3_ops_tool: solicitud operativa de Módulo 3 (PQRS por contrato o "
+                "cédula, reporte de fallas, mantenimientos en mapa de Cali, noticias/boletín, "
+                "simulación de factura o gestión RBAC). Se delega al ciclo ReAct de 20 @tool."
+            ),
+            tools_to_invoke=[
+                "radicar_pqrs_ciudadano",
+                "reportar_falla_servicio",
+                "listar_mantenimientos_activos",
+                "consultar_noticias_emcali",
+            ],
         )
 
     struct_hits = sum(1 for kw in STRUCTURED_KEYWORDS if kw in lowered)

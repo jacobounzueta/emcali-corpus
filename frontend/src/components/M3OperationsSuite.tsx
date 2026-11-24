@@ -627,6 +627,9 @@ export const M3OperationsSuite: React.FC = () => {
                         <div className="text-[11px] text-slate-600">
                           {h.report_count} reporte(s) · {h.severity_label}
                         </div>
+                        <div className="text-[10px] text-slate-500">
+                          🕒 {h.latest_report_at ? h.latest_report_at.replace("T", " ").slice(0, 16) : "Reciente"}
+                        </div>
                       </div>
                       {isManager && (
                         <button
@@ -918,15 +921,20 @@ export const M3OperationsSuite: React.FC = () => {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-slate-900">{n.titulo}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                        n.es_mantenimiento
-                          ? "bg-amber-100 text-amber-900"
-                          : "bg-sky-100 text-sky-900"
-                      }`}
-                    >
-                      {n.categoria}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 text-slate-700">
+                        📅 {n.fecha_publicacion || (n.scraped_at ? String(n.scraped_at).slice(0, 10) : "2026")}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          n.es_mantenimiento
+                            ? "bg-amber-100 text-amber-900"
+                            : "bg-sky-100 text-sky-900"
+                        }`}
+                      >
+                        {n.categoria}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-slate-600 line-clamp-2">{n.resumen}</p>
                   {n.barrios?.length > 0 && (
