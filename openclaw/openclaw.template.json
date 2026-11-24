@@ -1,0 +1,60 @@
+{
+  "gateway": {
+    "bind": "loopback",
+    "port": 18789,
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/home/rommel/emcali-corpus/openclaw/workspace",
+      "model": {
+        "primary": "deepseek/deepseek-v4-pro",
+        "fallbacks": [
+          "deepseek/deepseek-chat"
+        ]
+      },
+      "sandbox": {
+        "mode": "strict",
+        "fs": {
+          "workspaceOnly": true
+        }
+      },
+      "tools": {
+        "deny": [
+          "exec",
+          "shell",
+          "system.run",
+          "browser.eval",
+          "write_outside_workspace"
+        ]
+      }
+    }
+  },
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "allowFrom": [
+        "+573000000001"
+      ],
+      "groupPolicy": "disabled"
+    }
+  },
+  "mcpServers": {
+    "emcali-eder": {
+      "command": "/home/rommel/.local/bin/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/home/rommel/emcali-corpus",
+        "emcali-mcp"
+      ],
+      "env": {
+        "EMCALI_MCP_DEFAULT_ROLE": "citizen"
+      }
+    }
+  }
+}

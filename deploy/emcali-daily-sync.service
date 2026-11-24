@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily EMCALI News Sync & UMAP Refresh
+
+[Service]
+Type=oneshot
+User=rommel
+WorkingDirectory=/home/rommel/emcali-corpus
+Environment=PATH=/home/rommel/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/home/rommel/emcali-corpus/.env
+ExecStart=/home/rommel/.local/bin/uv run python -c "from emcali_corpus.news_sync import sync_news_from_gold; from emcali_corpus.umap_diagnostics import compute_umap_diagnostics; print(sync_news_from_gold()); print(compute_umap_diagnostics(force_refresh=True)['metrics'])"

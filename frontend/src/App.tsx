@@ -29,6 +29,7 @@ import type {
   MemoryItem,
   TurnPayload,
 } from "./types";
+import { M3OperationsSuite } from "./components/M3OperationsSuite";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -160,7 +161,7 @@ function renderMarkdownContent(content: string): React.ReactNode {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"chat" | "xray" | "eval" | "arch">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "ops" | "xray" | "eval" | "arch">("chat");
   const [health, setHealth] = useState<Record<string, any> | null>(null);
   const [presets, setPresets] = useState<DemoPreset[]>([]);
   const [threadId, setThreadId] = useState<string>("hilo-sustentacion-01");
@@ -927,6 +928,16 @@ export default function App() {
               💬 Atención Ciudadana
             </button>
             <button
+              onClick={() => setActiveTab("ops")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                activeTab === "ops"
+                  ? "bg-[#00875A] text-white shadow"
+                  : "text-sky-100 hover:bg-white/10"
+              }`}
+            >
+              🗺️ Mapa, PQRS, UMAP & Gestión
+            </button>
+            <button
               onClick={() => setActiveTab("xray")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 activeTab === "xray"
@@ -974,6 +985,9 @@ export default function App() {
           </button>
         </div>
       )}
+
+      {/* VISTA M3: MAPA CALI, PQRS, FALLAS, NOTICIAS, UMAP Y GESTIÓN RBAC */}
+      {activeTab === "ops" && <M3OperationsSuite />}
 
       {/* VISTA 1: PRODUCTO CIUDADANO EMCALI (LIMPIO, SIN JERGAS ACADÉMICAS) */}
       {activeTab === "chat" && (

@@ -18,6 +18,7 @@ from emcali_corpus.agent_graph import (
     EmcaliConversationalAgent,
     get_conversational_agent,
 )
+from emcali_corpus.api_m3 import router as m3_ops_router
 from emcali_corpus.knowledge import SECTION_LABELS
 from emcali_corpus.memory import (
     search_user_long_term_memories,
@@ -234,8 +235,9 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
             },
             "langsmith": {
                 "tracing_enabled": langsmith_enabled,
-                "project": os.getenv("LANGSMITH_PROJECT", "emcali-agente-modulo2"),
+                "project": os.getenv("LANGSMITH_PROJECT", "emcali-eder-m3"),
             },
+            "tools_catalog_count": 20,
             "voice": describe_voice_capabilities(),
             "sections": [
                 {"key": key, "label": label} for key, label in sorted(SECTION_LABELS.items())
@@ -431,6 +433,8 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         if _CACHED_RETRIEVAL_EVAL is None or refresh:
             _CACHED_RETRIEVAL_EVAL = run_full_retrieval_benchmark(_agent().vector_store)
         return _CACHED_RETRIEVAL_EVAL
+
+    app.include_router(m3_ops_router)
 
     frontend_dist = config.PROJECT_ROOT / "frontend" / "dist"
     if frontend_dist.is_dir():

@@ -1,0 +1,13 @@
+172-183-55-204.sslip.io {
+    encode gzip zstd
+
+    reverse_proxy 127.0.0.1:8000 {
+        flush_interval -1
+    }
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
