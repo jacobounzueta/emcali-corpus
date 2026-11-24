@@ -11,12 +11,30 @@ from pydantic import BaseModel, Field
 from emcali_corpus.vector_store import compute_dense_embedding
 
 EMCALI_DOMAIN_PROTOTYPES: tuple[str, ...] = (
-    "EMCALI servicios públicos domiciliarios Cali energía eléctrica kWh transformadores circuitos tarifas subsidios estrato",
-    "EMCALI acueducto agua potable alcantarillado tuberías fugas presión embalse PTAR Cañaveralejo m3",
-    "EMCALI telecomunicaciones telco fibra óptica internet Mbps planes soporte técnico enredos",
-    "EMCALI atención ciudadanía PQRS petición queja reclamo sugerencia radicado contrato cédula factura PSE línea 177",
-    "EMCALI mantenimientos reparaciones cortes programados fallas brigadas mapa barrios comunas Cali noticias boletín",
-    "EMCALI transparencia normatividad Ley 1581 protección datos personales sostenibilidad gerente Roger Mina indicadores",
+    (
+        "EMCALI servicios públicos domiciliarios Cali energía eléctrica kWh "
+        "transformadores circuitos tarifas subsidios estrato"
+    ),
+    (
+        "EMCALI acueducto agua potable alcantarillado tuberías fugas presión "
+        "embalse PTAR Cañaveralejo m3"
+    ),
+    (
+        "EMCALI telecomunicaciones telco fibra óptica internet Mbps planes "
+        "soporte técnico enredos"
+    ),
+    (
+        "EMCALI atención ciudadanía PQRS petición queja reclamo sugerencia "
+        "radicado contrato cédula factura PSE línea 177"
+    ),
+    (
+        "EMCALI mantenimientos reparaciones cortes programados fallas brigadas "
+        "mapa barrios comunas Cali noticias boletín"
+    ),
+    (
+        "EMCALI transparencia normatividad Ley 1581 protección datos personales "
+        "sostenibilidad gerente Roger Mina indicadores"
+    ),
 )
 
 _PROTOTYPE_VECTORS: tuple[list[float], ...] = tuple(
