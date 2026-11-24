@@ -110,6 +110,33 @@ def _reload_openclaw_whatsapp_async() -> None:
         )
 
 
+def _send_whatsapp_notifications_async(phones: list[str], message: str) -> int:
+    """Envía notificaciones proactivas por WhatsApp vía OpenClaw sin bloquear el API."""
+    sent = 0
+    for phone in phones:
+        clean = phone.strip()
+        if not _E164_RE.match(clean):
+            continue
+        with contextlib.suppress(OSError):
+            subprocess.Popen(
+                [
+                    "openclaw",
+                    "message",
+                    "send",
+                    "--channel",
+                    "whatsapp",
+                    "--target",
+                    clean,
+                    "--message",
+                    message,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            sent += 1
+    return sent
+
+
 def _write_whatsapp_allowlist(numbers: list[str]) -> list[str]:
     cleaned = sorted(dict.fromkeys(numbers))
     if OPENCLAW_CONFIG_PATH.is_file():
@@ -325,13 +352,31 @@ def dispatch_crew_endpoint(
 ) -> dict[str, Any]:
     username = _require_manager(authorization)
     db = get_ops_db()
-    maint = db.dispatch_crew_for_hotspot(
-        barrio=payload.barrio,
-        servicio=payload.servicio,
-        brigada_asignada=payload.brigada_asignada,
-        notas=payload.notas,
-        created_by=username,
-    )
+    try:
+        maint = db.dispatch_crew_for_hotspot(
+            barrio=payload.barrio,
+            servicio=payload.servicio,
+            brigada_asignada=payload.brigada_asignada,
+            notas=payload.notas,
+            created_by=username,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    phones = list(maint.get("notifiable_phones", []))
+    notified = 0
+    if phones:
+        msg = (
+            "🚑 *Actualización EMCALI — Brigada Despachada*\n"
+            f"Se activó atención prioritaria de *{maint['servicio'].upper()}* "
+            f"en *{maint['barrio']}* ({maint['comuna']}).\n"
+            f"• Radicado de mantenimiento: `{maint['mantenimiento_id']}`\n"
+            f"• Brigada asignada: *{maint['brigada_asignada']}*\n"
+            f"• Fecha y hora: `{maint['inicio_estimado']}`\n"
+            "Puedes seguir el estado en vivo en https://172-183-55-204.sslip.io"
+        )
+        notified = _send_whatsapp_notifications_async(phones, msg)
+    maint["whatsapp_notifications_queued"] = notified
     return {"status": "dispatched", "maintenance": maint}
 
 

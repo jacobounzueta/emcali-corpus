@@ -831,6 +831,22 @@ class EmcaliOpsDatabase:
             )
         )
         with self._lock:
+            phone_rows = self._conn.execute(
+                """
+                SELECT DISTINCT telefono_e164 FROM failure_reports
+                WHERE LOWER(barrio) = LOWER(?) AND servicio = ?
+                  AND estado != 'Resuelto' AND telefono_e164 != ''
+                """,
+                (target_barrio, servicio),
+            ).fetchall()
+            sub_rows = self._conn.execute(
+                """
+                SELECT DISTINCT contacto FROM newsletter_subscribers
+                WHERE activo = 1 AND canal = 'whatsapp'
+                  AND (LOWER(barrio_interes) = LOWER(?) OR LOWER(barrio_interes) = 'todos')
+                """,
+                (target_barrio,),
+            ).fetchall()
             cur = self._conn.execute(
                 """
                 UPDATE failure_reports
@@ -841,7 +857,15 @@ class EmcaliOpsDatabase:
             )
             self._conn.commit()
             linked_count = cur.rowcount
+        phones = sorted(
+            {
+                str(r[0]).strip()
+                for r in (*phone_rows, *sub_rows)
+                if str(r[0]).strip().startswith("+")
+            }
+        )
         maint["linked_failure_reports"] = linked_count
+        maint["notifiable_phones"] = phones
         return maint
 
     def close_maintenance_point(

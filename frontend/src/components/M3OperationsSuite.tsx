@@ -359,8 +359,9 @@ export const M3OperationsSuite: React.FC = () => {
       setStatusMsg(`🛡️ ${data.detail}`);
       return;
     }
+    const waQueued = data.maintenance.whatsapp_notifications_queued ?? 0;
     setStatusMsg(
-      `🚑 Brigada despachada a ${h.barrio} (${data.maintenance.linked_failure_reports} fallas vinculadas).`
+      `🚑 Brigada despachada a ${h.barrio} (${data.maintenance.linked_failure_reports} fallas vinculadas · ${waQueued} aviso(s) WhatsApp enviados).`
     );
     loadMapAndOps();
   };
