@@ -233,6 +233,10 @@ export const M3OperationsSuite: React.FC = () => {
 
   useEffect(() => {
     loadMapAndOps();
+    const timer = window.setInterval(() => {
+      loadMapAndOps();
+    }, 4000);
+    return () => window.clearInterval(timer);
   }, [loadMapAndOps]);
 
   useEffect(() => {
@@ -576,9 +580,15 @@ export const M3OperationsSuite: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-[#003B71] flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-[#00875A]" /> Mapa Operativo de Cali — Mantenimientos y Alertas de Fallas
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-[#003B71] flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-[#00875A]" /> Mapa Operativo de Cali — Mantenimientos y Alertas de Fallas
+                </h2>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  En vivo (4s)
+                </span>
+              </div>
               <div className="flex flex-wrap gap-1">
                 {["todos", "energia", "acueducto", "alcantarillado", "telco_fibra"].map((s) => (
                   <button

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any, Literal
 
@@ -98,6 +99,18 @@ def _read_whatsapp_allowlist() -> list[str]:
     return [str(p) for p in allow if str(p).strip()]
 
 
+def _reload_openclaw_whatsapp_async() -> None:
+    """Reinicia el gateway OpenClaw en segundo plano para aplicar cambios de allowFrom."""
+    try:
+        subprocess.Popen(
+            ["openclaw", "gateway", "restart"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        pass
+
+
 def _write_whatsapp_allowlist(numbers: list[str]) -> list[str]:
     cleaned = sorted(dict.fromkeys(numbers))
     if OPENCLAW_CONFIG_PATH.is_file():
@@ -107,6 +120,7 @@ def _write_whatsapp_allowlist(numbers: list[str]) -> list[str]:
             json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+        _reload_openclaw_whatsapp_async()
     return cleaned
 
 
