@@ -74,7 +74,7 @@ const UMAP_SECTION_COLORS: Record<string, string> = {
 };
 
 export const M3OperationsSuite: React.FC = () => {
-  const [subTab, setSubTab] = useState<"map" | "pqrs" | "news" | "umap_tools">("map");
+  const [subTab, setSubTab] = useState<"map" | "pqrs" | "news" | "umap_tools" | "iam">("map");
   const [session, setSession] = useState<AuthSession>({
     authenticated: false,
     role: "citizen",
@@ -128,6 +128,17 @@ export const M3OperationsSuite: React.FC = () => {
     contacto: "+57",
     nombre: "",
     barrio_interes: "Todos",
+  });
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [waAllowlist, setWaAllowlist] = useState<string[]>([]);
+  const [newWaPhone, setNewWaPhone] = useState("+57");
+  const [newUserForm, setNewUserForm] = useState({
+    username: "",
+    display_name: "",
+    role: "manager" as "citizen" | "manager",
+    password: "",
+    phone_e164: "",
+    department: "Operaciones EMCALI",
   });
 
   const isManager = session.role === "manager";
@@ -200,6 +211,26 @@ export const M3OperationsSuite: React.FC = () => {
     }
   }, []);
 
+  const loadAdminIam = useCallback(async () => {
+    if (!session.token || session.role !== "manager") return;
+    try {
+      const [uRes, waRes] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/admin/whatsapp/allowlist`, { headers: authHeaders() }),
+      ]);
+      if (uRes.ok) {
+        const d = await uRes.json();
+        setAdminUsers(d.items || []);
+      }
+      if (waRes.ok) {
+        const d = await waRes.json();
+        setWaAllowlist(d.allowFrom || []);
+      }
+    } catch {
+      // silent
+    }
+  }, [session.token, session.role, authHeaders]);
+
   useEffect(() => {
     loadMapAndOps();
   }, [loadMapAndOps]);
@@ -207,7 +238,8 @@ export const M3OperationsSuite: React.FC = () => {
   useEffect(() => {
     if (subTab === "news") loadNewsAndDigest();
     if (subTab === "umap_tools" && !umapData) loadCatalogAndUmap(false);
-  }, [subTab, loadNewsAndDigest, loadCatalogAndUmap, umapData]);
+    if (subTab === "iam" && isManager) loadAdminIam();
+  }, [subTab, loadNewsAndDigest, loadCatalogAndUmap, umapData, isManager, loadAdminIam]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,6 +371,78 @@ export const M3OperationsSuite: React.FC = () => {
     }
   };
 
+  const handleAddWaPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/whatsapp/allowlist`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ phone_e164: newWaPhone.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatusMsg(`❌ ${data.detail}`);
+      return;
+    }
+    setWaAllowlist(data.allowFrom || []);
+    setNewWaPhone("+57");
+    setStatusMsg(`✅ Número ${data.phone_e164} agregado al allowlist de WhatsApp (hot-reload activo).`);
+  };
+
+  const handleRemoveWaPhone = async (phone: string) => {
+    const res = await fetch(
+      `${API_BASE}/api/admin/whatsapp/allowlist/${encodeURIComponent(phone)}`,
+      { method: "DELETE", headers: authHeaders() }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      setWaAllowlist(data.allowFrom || []);
+      setStatusMsg(`🗑️ Número ${phone} removido del allowlist de WhatsApp.`);
+    }
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/admin/users`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ ...newUserForm, active: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatusMsg(`❌ ${data.detail}`);
+      return;
+    }
+    setStatusMsg(`✅ Usuario RBAC '${data.user.username}' (${data.user.role}) guardado.`);
+    setNewUserForm({
+      username: "",
+      display_name: "",
+      role: "manager",
+      password: "",
+      phone_e164: "",
+      department: "Operaciones EMCALI",
+    });
+    loadAdminIam();
+  };
+
+  const handleToggleUserActive = async (u: any) => {
+    const res = await fetch(`${API_BASE}/api/admin/users`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        username: u.username,
+        display_name: u.display_name,
+        role: u.role,
+        phone_e164: u.phone_e164,
+        department: u.department,
+        active: !u.active,
+      }),
+    });
+    if (res.ok) {
+      setStatusMsg(`🔄 Usuario '${u.username}' ${!u.active ? "activado" : "desactivado"}.`);
+      loadAdminIam();
+    }
+  };
+
   // Escalado de coordenadas UMAP para el SVG interactivo
   const renderUmapSvg = () => {
     if (!umapData || umapData.points.length === 0) return null;
@@ -451,6 +555,7 @@ export const M3OperationsSuite: React.FC = () => {
           { id: "pqrs", label: "📝 PQRS & Reporte de Fallas" },
           { id: "news", label: "📰 Noticias (310+) & Boletín OpenClaw" },
           { id: "umap_tools", label: "🧬 UMAP 2D, 20 Tools & HITL" },
+          { id: "iam", label: "🔐 IAM Usuarios & WhatsApp Allowlist" },
         ].map((t) => (
           <button
             key={t.id}
@@ -985,6 +1090,143 @@ export const M3OperationsSuite: React.FC = () => {
               ))}
             </div>
           </div>
+        </div>
+      )}
+      {/* SUB-TAB 5: IAM USUARIOS & WHATSAPP ALLOWLIST (SOLO GESTIÓN EMCALI) */}
+      {subTab === "iam" && (
+        <div className="space-y-4">
+          {!isManager ? (
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-6 text-xs text-amber-900">
+              🛡️ <b>Acceso restringido (RBAC):</b> Inicia sesión en modo <b>Gestión EMCALI</b> arriba (cuenta admin por defecto: <code>rommel</code> / <code>emcali-ops-2026</code>) para controlar usuarios RBAC y el allowlist E.164 de WhatsApp en vivo.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Control en vivo del Allowlist WhatsApp (OpenClaw) */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+                <h3 className="text-sm font-bold text-[#003B71]">
+                  📱 WhatsApp Allowlist en Vivo (OpenClaw <code>allowFrom</code>)
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Agrega o remueve números E.164 (ej. invitados de EMCALI) sin tocar la terminal. OpenClaw recarga los cambios automáticamente.
+                </p>
+                <form onSubmit={handleAddWaPhone} className="flex gap-2 text-xs">
+                  <input
+                    required
+                    value={newWaPhone}
+                    onChange={(e) => setNewWaPhone(e.target.value)}
+                    placeholder="+573183775357"
+                    className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 font-mono"
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 rounded-lg bg-[#00875A] hover:bg-emerald-700 text-white font-bold cursor-pointer"
+                  >
+                    + Agregar
+                  </button>
+                </form>
+                <div className="space-y-1.5">
+                  {waAllowlist.length === 0 ? (
+                    <p className="text-xs text-slate-500">Sin números configurados en openclaw.json.</p>
+                  ) : (
+                    waAllowlist.map((phone) => (
+                      <div
+                        key={phone}
+                        className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs"
+                      >
+                        <span className="font-mono font-bold text-slate-800">{phone}</span>
+                        <button
+                          onClick={() => handleRemoveWaPhone(phone)}
+                          className="px-2 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold cursor-pointer"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Control de Usuarios RBAC */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+                <h3 className="text-sm font-bold text-[#003B71]">
+                  👥 Administración de Usuarios RBAC ({adminUsers.length})
+                </h3>
+                <form onSubmit={handleSaveUser} className="grid grid-cols-2 gap-2 text-xs">
+                  <input
+                    required
+                    value={newUserForm.username}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })}
+                    placeholder="usuario (ej. jacobo)"
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-300"
+                  />
+                  <input
+                    required
+                    value={newUserForm.display_name}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, display_name: e.target.value })}
+                    placeholder="Nombre visible"
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-300"
+                  />
+                  <select
+                    value={newUserForm.role}
+                    onChange={(e) =>
+                      setNewUserForm({ ...newUserForm, role: e.target.value as "citizen" | "manager" })
+                    }
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-300"
+                  >
+                    <option value="manager">Manager (Gestión 20/20)</option>
+                    <option value="citizen">Citizen (Público 16/20)</option>
+                  </select>
+                  <input
+                    required
+                    type="password"
+                    value={newUserForm.password}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                    placeholder="Contraseña (mín. 4)"
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-300"
+                  />
+                  <input
+                    value={newUserForm.phone_e164}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, phone_e164: e.target.value })}
+                    placeholder="WhatsApp E.164 (opcional)"
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-300 font-mono"
+                  />
+                  <button
+                    type="submit"
+                    className="py-1.5 rounded-lg bg-[#003B71] hover:bg-[#00284D] text-white font-bold cursor-pointer"
+                  >
+                    + Crear / Actualizar
+                  </button>
+                </form>
+
+                <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                  {adminUsers.map((u) => (
+                    <div
+                      key={u.username}
+                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-900">{u.username}</span>{" "}
+                        <span className="text-slate-600">({u.display_name})</span>
+                        <div className="text-[11px] text-slate-500">
+                          Rol: <b>{u.role}</b> · Tel: {u.phone_e164 || "—"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleToggleUserActive(u)}
+                        className={`px-2 py-0.5 rounded font-bold cursor-pointer ${
+                          u.active
+                            ? "bg-emerald-100 text-emerald-900"
+                            : "bg-slate-200 text-slate-600"
+                        }`}
+                      >
+                        {u.active ? "Activo" : "Inactivo"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </main>

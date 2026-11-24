@@ -179,3 +179,18 @@ def test_m3_fastapi_endpoints_rbac_and_map(isolated_ops_db: EmcaliOpsDatabase) -
     m_resp = client.get("/api/map/overview")
     assert m_resp.status_code == 200
     assert m_resp.json()["maintenances_count"] >= 3
+
+    # Admin RBAC user creation
+    new_u = client.post(
+        "/api/admin/users",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "username": "jacobo",
+            "display_name": "Jacobo Unzueta (Gestión)",
+            "role": "manager",
+            "password": "emcali-ops-2026",
+            "phone_e164": "+573183775357",
+        },
+    )
+    assert new_u.status_code == 200
+    assert new_u.json()["user"]["username"] == "jacobo"

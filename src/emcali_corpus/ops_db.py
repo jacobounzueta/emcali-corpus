@@ -428,6 +428,90 @@ class EmcaliOpsDatabase:
                 return "manager"
         return "citizen"
 
+    def list_users_rbac(self) -> list[dict[str, Any]]:
+        """Lista todos los usuarios RBAC sin exponer hashes de contraseña."""
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT username, display_name, role, phone_e164, department, active, created_at
+                FROM users_rbac
+                ORDER BY role DESC, username ASC
+                """
+            ).fetchall()
+        return [{**dict(r), "active": bool(r["active"])} for r in rows]
+
+    def upsert_user_rbac(
+        self,
+        *,
+        username: str,
+        display_name: str,
+        role: UserRole,
+        password: str | None = None,
+        phone_e164: str = "",
+        department: str = "",
+        active: bool = True,
+    ) -> dict[str, Any]:
+        """Crea o actualiza un usuario RBAC (solo accesible desde Gestión EMCALI)."""
+        clean_user = username.strip().lower()
+        now = utc_now_iso()
+        with self._lock:
+            existing = self._conn.execute(
+                "SELECT password_hash FROM users_rbac WHERE username = ?", (clean_user,)
+            ).fetchone()
+            if existing:
+                pw_hash = (
+                    _hash_secret(password)
+                    if password and password.strip()
+                    else str(existing["password_hash"])
+                )
+                self._conn.execute(
+                    """
+                    UPDATE users_rbac
+                    SET display_name = ?, role = ?, password_hash = ?,
+                        phone_e164 = ?, department = ?, active = ?
+                    WHERE username = ?
+                    """,
+                    (
+                        display_name.strip(),
+                        role,
+                        pw_hash,
+                        phone_e164.strip(),
+                        department.strip(),
+                        1 if active else 0,
+                        clean_user,
+                    ),
+                )
+            else:
+                if not password or len(password.strip()) < 4:
+                    raise ValueError("La contraseña debe tener al menos 4 caracteres.")
+                self._conn.execute(
+                    """
+                    INSERT INTO users_rbac (
+                        username, display_name, role, password_hash,
+                        phone_e164, department, active, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        clean_user,
+                        display_name.strip(),
+                        role,
+                        _hash_secret(password.strip()),
+                        phone_e164.strip(),
+                        department.strip(),
+                        1 if active else 0,
+                        now,
+                    ),
+                )
+            self._conn.commit()
+            row = self._conn.execute(
+                """
+                SELECT username, display_name, role, phone_e164, department, active, created_at
+                FROM users_rbac WHERE username = ?
+                """,
+                (clean_user,),
+            ).fetchone()
+        return {**dict(row), "active": bool(row["active"])}
+
     # ------------------------------------------------------------------
     # PQRS
     # ------------------------------------------------------------------

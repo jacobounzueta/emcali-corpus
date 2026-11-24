@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Header, HTTPException
@@ -67,6 +70,44 @@ class NewsletterSubscribeRequest(BaseModel):
 
 class HitlResolveRequest(BaseModel):
     approved: bool
+
+
+class UserRbacUpsertRequest(BaseModel):
+    username: str = Field(min_length=2, max_length=40)
+    display_name: str = Field(min_length=2, max_length=120)
+    role: UserRole = "citizen"
+    password: str | None = Field(default=None)
+    phone_e164: str = Field(default="")
+    department: str = Field(default="")
+    active: bool = True
+
+
+class WhatsAppAllowlistRequest(BaseModel):
+    phone_e164: str = Field(min_length=8, max_length=20)
+
+
+_E164_RE = re.compile(r"^\+\d{8,15}$")
+OPENCLAW_CONFIG_PATH = Path.home() / ".openclaw" / "openclaw.json"
+
+
+def _read_whatsapp_allowlist() -> list[str]:
+    if not OPENCLAW_CONFIG_PATH.is_file():
+        return []
+    raw = json.loads(OPENCLAW_CONFIG_PATH.read_text(encoding="utf-8"))
+    allow = raw.get("channels", {}).get("whatsapp", {}).get("allowFrom", [])
+    return [str(p) for p in allow if str(p).strip()]
+
+
+def _write_whatsapp_allowlist(numbers: list[str]) -> list[str]:
+    cleaned = sorted(dict.fromkeys(numbers))
+    if OPENCLAW_CONFIG_PATH.is_file():
+        raw = json.loads(OPENCLAW_CONFIG_PATH.read_text(encoding="utf-8"))
+        raw.setdefault("channels", {}).setdefault("whatsapp", {})["allowFrom"] = cleaned
+        OPENCLAW_CONFIG_PATH.write_text(
+            json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return cleaned
 
 
 def _resolve_role_and_user(authorization: str | None) -> tuple[UserRole, str]:
@@ -386,3 +427,81 @@ def ops_executive_summary(authorization: str | None = Header(default=None)) -> d
 def get_umap_projection(refresh: bool = False) -> dict[str, Any]:
     """Devuelve la proyección UMAP 2D del corpus EMCALI + consultas + PQRS/Fallas."""
     return compute_umap_diagnostics(force_refresh=refresh)
+
+
+# ---------------------------------------------------------------------------
+# Administración IAM (Usuarios RBAC) y Allowlist WhatsApp (Manager Only)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/admin/users")
+def admin_list_users(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    _require_manager(authorization)
+    db = get_ops_db()
+    items = db.list_users_rbac()
+    return {"count": len(items), "items": items}
+
+
+@router.post("/admin/users")
+def admin_upsert_user(
+    payload: UserRbacUpsertRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_manager(authorization)
+    db = get_ops_db()
+    try:
+        user = db.upsert_user_rbac(
+            username=payload.username,
+            display_name=payload.display_name,
+            role=payload.role,
+            password=payload.password,
+            phone_e164=payload.phone_e164,
+            department=payload.department,
+            active=payload.active,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "saved", "user": user}
+
+
+@router.get("/admin/whatsapp/allowlist")
+def admin_get_whatsapp_allowlist(
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_manager(authorization)
+    nums = _read_whatsapp_allowlist()
+    return {
+        "config_found": OPENCLAW_CONFIG_PATH.is_file(),
+        "count": len(nums),
+        "allowFrom": nums,
+    }
+
+
+@router.post("/admin/whatsapp/allowlist")
+def admin_add_whatsapp_allowlist(
+    payload: WhatsAppAllowlistRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_manager(authorization)
+    phone = payload.phone_e164.strip()
+    if not _E164_RE.match(phone):
+        raise HTTPException(
+            status_code=400,
+            detail="El número debe estar en formato E.164 (ej. +573183775357).",
+        )
+    nums = _read_whatsapp_allowlist()
+    if phone not in nums:
+        nums.append(phone)
+    updated = _write_whatsapp_allowlist(nums)
+    return {"status": "added", "phone_e164": phone, "allowFrom": updated}
+
+
+@router.delete("/admin/whatsapp/allowlist/{phone_e164}")
+def admin_remove_whatsapp_allowlist(
+    phone_e164: str,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_manager(authorization)
+    nums = [n for n in _read_whatsapp_allowlist() if n != phone_e164.strip()]
+    updated = _write_whatsapp_allowlist(nums)
+    return {"status": "removed", "phone_e164": phone_e164, "allowFrom": updated}
