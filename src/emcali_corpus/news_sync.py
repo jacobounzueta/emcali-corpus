@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+import requests
+
 from emcali_corpus import config
 from emcali_corpus.cali_geo import detect_barrios_in_text
 from emcali_corpus.ops_db import (
@@ -16,6 +18,8 @@ from emcali_corpus.ops_db import (
     ServiceType,
     get_ops_db,
 )
+
+LIVE_EMCALI_NEWS_JSON_URL = "https://portalemcali.onrender.com/data/news.json"
 
 MAINTENANCE_KEYWORDS: tuple[str, ...] = (
     "mantenimiento",
@@ -116,8 +120,7 @@ def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[
             if (
                 not title
                 or len(body_text) < 40
-                or title.lower()
-                in {"noticias", "portal de proveedores", "noticias cortes detalle"}
+                or title.lower() in {"noticias", "portal de proveedores", "noticias cortes detalle"}
             ):
                 continue
             url = (
@@ -137,11 +140,112 @@ def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[
     return records
 
 
+def sync_live_emcali_news(
+    ops_db: EmcaliOpsDatabase | None = None,
+    *,
+    limit_articles: int = 120,
+    max_maintenance_pins: int = 15,
+    timeout: int = 20,
+) -> dict[str, Any]:
+    """Descarga en vivo el feed oficial JSON de EMCALI (2026) y actualiza noticias y mapa."""
+    db = ops_db or get_ops_db()
+    resp = requests.get(
+        LIVE_EMCALI_NEWS_JSON_URL,
+        headers={"User-Agent": config.USER_AGENT},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    raw_items = payload.get("news", []) if isinstance(payload, dict) else []
+    if not isinstance(raw_items, list):
+        return {"live_news_ingested": 0, "live_maintenance_pins": 0, "source": "live_json"}
+
+    # Ordenar por fecha descendente antes de truncar
+    raw_items.sort(key=lambda x: str(x.get("date", "")), reverse=True)
+    ingested = 0
+    maint_detected = 0
+    pins_created = 0
+
+    existing_titles = {
+        str(m["titulo"]).lower() for m in db.list_maintenance_points(solo_activos=False, limit=300)
+    }
+
+    for item in raw_items[:limit_articles]:
+        title = str(item.get("title", "")).strip()
+        if not title:
+            continue
+        desc = str(item.get("description", "") or "").strip()
+        raw_content = item.get("content") or desc
+        if isinstance(raw_content, list):
+            content_str = " ".join(str(x) for x in raw_content)
+        else:
+            content_str = str(raw_content)
+        date_str = str(item.get("date", "") or "").strip()[:10]
+        cat_raw = str(item.get("category", "") or "Noticias EMCALI").strip()
+        slug_id = str(item.get("id", "") or hashlib.sha1(title.encode()).hexdigest()[:12])
+        url = (
+            str(item.get("url", "") or "").strip()
+            or f"https://www.emcali.com.co/noticias/{slug_id}"
+        )
+
+        combined = f"{title} {desc} {content_str}"
+        is_maint = (
+            "reparac" in cat_raw.lower()
+            or "manten" in cat_raw.lower()
+            or _is_maintenance_news(title, combined)
+        )
+        locations = detect_barrios_in_text(combined, limit=5)
+        barrio_names = [loc.barrio for loc in locations]
+
+        db.upsert_news_item(
+            noticia_id=f"LIVE-{slug_id[:24].upper()}",
+            titulo=title,
+            categoria="Reparaciones y Mantenimientos" if is_maint else cat_raw,
+            fecha_publicacion=date_str or "2026-11-24",
+            resumen=(desc or content_str)[:300].replace("\n", " ").strip(),
+            contenido=content_str[:3000],
+            url=url,
+            es_mantenimiento=is_maint,
+            barrios=barrio_names,
+        )
+        ingested += 1
+
+        if is_maint:
+            maint_detected += 1
+            if locations and pins_created < max_maintenance_pins:
+                primary_loc = locations[0]
+                if title.lower() not in existing_titles:
+                    db.create_maintenance_point(
+                        MaintenanceCreateRequest(
+                            titulo=title[:155],
+                            servicio=_infer_service(combined),
+                            barrio=primary_loc.barrio,
+                            descripcion=(desc or content_str)[:400],
+                            brigada_asignada="Brigada EMCALI (Feed Oficial 2026)",
+                            inicio_estimado=date_str or "2026-11-24",
+                            fin_estimado="Según programación EMCALI",
+                            fuente="scraping_emcali",
+                            fuente_url=url,
+                            created_by="live-emcali-news-feed",
+                        )
+                    )
+                    existing_titles.add(title.lower())
+                    pins_created += 1
+
+    return {
+        "source": LIVE_EMCALI_NEWS_JSON_URL,
+        "live_news_ingested": ingested,
+        "live_maintenance_news": maint_detected,
+        "live_map_pins_created": pins_created,
+    }
+
+
 def sync_news_from_gold(
     ops_db: EmcaliOpsDatabase | None = None,
     *,
     corpus_path: Path = config.INDEX_PATH,
     max_maintenance_pins: int = 12,
+    include_live: bool = False,
 ) -> dict[str, Any]:
     """Ingiere las noticias de EMCALI en SQLite y georreferencia mantenimientos en el mapa."""
     db = ops_db or get_ops_db()
@@ -196,11 +300,20 @@ def sync_news_from_gold(
                     existing_titles.add(rec["title"].lower())
                     pins_created += 1
 
-    return {
+    result: dict[str, Any] = {
         "news_ingested": ingested,
         "maintenance_news_detected": maint_news,
         "new_map_pins_created": pins_created,
     }
+    if include_live:
+        try:
+            result["live_feed"] = sync_live_emcali_news(
+                db,
+                max_maintenance_pins=max_maintenance_pins,
+            )
+        except Exception as exc:
+            result["live_feed_error"] = str(exc)
+    return result
 
 
 def build_daily_newsletter_digest(
