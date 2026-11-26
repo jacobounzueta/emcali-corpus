@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -107,19 +108,44 @@ def _read_whatsapp_allowlist() -> list[str]:
     return [str(p) for p in allow if str(p).strip()]
 
 
-def _reload_openclaw_whatsapp_async() -> None:
-    """Reinicia el gateway OpenClaw en segundo plano para aplicar cambios de allowFrom."""
-    with contextlib.suppress(OSError):
-        subprocess.Popen(
-            ["openclaw", "gateway", "restart"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+def _openclaw_env() -> dict[str, str]:
+    """Construye el entorno con XDG_RUNTIME_DIR/DBUS para operar OpenClaw desde systemd."""
+    env = dict(os.environ)
+    getuid = getattr(os, "getuid", None)
+    if callable(getuid):
+        uid = getuid()
+        xdg = env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{uid}")
+        env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={xdg}/bus")
+    return env
+
+
+def _reload_openclaw_whatsapp_sync() -> bool:
+    """Reinicia el gateway OpenClaw inmediatamente para aplicar cambios de allowFrom."""
+    env = _openclaw_env()
+    for cmd in (
+        ["openclaw", "gateway", "restart"],
+        ["systemctl", "--user", "restart", "openclaw-gateway.service"],
+    ):
+        try:
+            res = subprocess.run(
+                cmd,
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=12,
+                check=False,
+            )
+            if res.returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return False
 
 
 def _send_whatsapp_notifications_async(phones: list[str], message: str) -> int:
     """Envía notificaciones proactivas por WhatsApp vía OpenClaw sin bloquear el API."""
     sent = 0
+    env = _openclaw_env()
     for phone in phones:
         clean = phone.strip()
         if not _E164_RE.match(clean):
@@ -137,6 +163,7 @@ def _send_whatsapp_notifications_async(phones: list[str], message: str) -> int:
                     "--message",
                     message,
                 ],
+                env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -153,8 +180,38 @@ def _write_whatsapp_allowlist(numbers: list[str]) -> list[str]:
             json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        _reload_openclaw_whatsapp_async()
+        _reload_openclaw_whatsapp_sync()
     return cleaned
+
+
+def _ensure_phone_in_whatsapp_allowlist(
+    phone_e164: str,
+    *,
+    display_name: str = "",
+    send_welcome: bool = True,
+) -> tuple[bool, list[str]]:
+    """Agrega un teléfono al allowFrom de OpenClaw, recarga el gateway y envía saludo inicial."""
+    db = get_ops_db()
+    clean = db._normalize_phone_e164(phone_e164)
+    if not clean or not _E164_RE.match(clean):
+        return False, _read_whatsapp_allowlist()
+    nums = _read_whatsapp_allowlist()
+    added = clean not in nums
+    if added:
+        nums.append(clean)
+        updated = _write_whatsapp_allowlist(nums)
+        if send_welcome and OPENCLAW_CONFIG_PATH.is_file():
+            saludo_nombre = f" {display_name.strip()}" if display_name.strip() else ""
+            _send_whatsapp_notifications_async(
+                [clean],
+                (
+                    f"¡Hola{saludo_nombre}! Soy Mile, asistente virtual de EMCALI 👋. "
+                    "Tu número ya quedó habilitado en WhatsApp. Escríbeme aquí para consultar "
+                    "tarifas, mantenimientos, radicar PQRS o reportar fallas en Cali."
+                ),
+            )
+        return True, updated
+    return False, nums
 
 
 def _resolve_role_and_user(authorization: str | None) -> tuple[UserRole, str]:
@@ -199,7 +256,7 @@ def auth_register(payload: CitizenRegisterRequest) -> dict[str, Any]:
     existing = [u for u in db.list_users_rbac() if u["username"] == clean_user]
     if existing:
         raise HTTPException(status_code=409, detail="Ese nombre de usuario ya está registrado.")
-    phone = payload.phone_e164.strip()
+    phone = db._normalize_phone_e164(payload.phone_e164) if payload.phone_e164.strip() else ""
     if phone and not _E164_RE.match(phone):
         raise HTTPException(
             status_code=400,
@@ -217,10 +274,16 @@ def auth_register(payload: CitizenRegisterRequest) -> dict[str, Any]:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    whatsapp_added = False
+    if phone:
+        whatsapp_added, _ = _ensure_phone_in_whatsapp_allowlist(
+            phone,
+            display_name=payload.display_name,
+        )
     session = db.authenticate_user(clean_user, payload.password)
     if not session:
         raise HTTPException(status_code=500, detail="No fue posible iniciar sesión tras registro.")
-    return session
+    return {**session, "whatsapp_allowlisted": bool(phone), "whatsapp_newly_added": whatsapp_added}
 
 
 @router.get("/auth/me")
@@ -567,7 +630,13 @@ def admin_upsert_user(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"status": "saved", "user": user}
+    whatsapp_added = False
+    if payload.active and payload.phone_e164.strip():
+        whatsapp_added, _ = _ensure_phone_in_whatsapp_allowlist(
+            payload.phone_e164,
+            display_name=payload.display_name,
+        )
+    return {"status": "saved", "user": user, "whatsapp_newly_added": whatsapp_added}
 
 
 @router.get("/admin/whatsapp/allowlist")
@@ -589,16 +658,16 @@ def admin_add_whatsapp_allowlist(
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     _require_manager(authorization)
-    phone = payload.phone_e164.strip()
+    db = get_ops_db()
+    phone = db._normalize_phone_e164(payload.phone_e164)
     if not _E164_RE.match(phone):
         raise HTTPException(
             status_code=400,
             detail="El número debe estar en formato E.164 (ej. +573183775357).",
         )
-    nums = _read_whatsapp_allowlist()
-    if phone not in nums:
-        nums.append(phone)
-    updated = _write_whatsapp_allowlist(nums)
+    added, updated = _ensure_phone_in_whatsapp_allowlist(phone)
+    if not added and OPENCLAW_CONFIG_PATH.is_file():
+        _reload_openclaw_whatsapp_sync()
     return {"status": "added", "phone_e164": phone, "allowFrom": updated}
 
 
