@@ -42,75 +42,26 @@ make check
 
 ---
 
-## 🏗️ Diagramas de Arquitectura — Módulo 2 (Criterio 4.1)
+## 🏗️ Arquitectura Interactiva (Archify) — Módulos 1, 2 y 3
 
-### 1. Arquitectura General Desacoplada y Grafo del Agente (`LangGraph StateGraph`)
+> 🗺️ **Explora el mapa interactivo de arquitectura (Archify):** abre [`docs/arquitectura.html`](./docs/arquitectura.html) en tu navegador o inspecciona la especificación estructurada en [`docs/arquitectura.json`](./docs/arquitectura.json).
 
-```mermaid
-flowchart TB
-    subgraph Client["Frontend Propio Desacoplado (React 19 + TypeScript + Vite :5173)"]
-        ChatUI["Chat Streaming SSE + Selector Hilo (thread_id) y Usuario (user_id)"]
-        VoiceUI["Módulo de Voz: Hotword 'Eder' / 'Oye Eder' / 'Hola Eder' + Síntesis TTS"]
-        XRayUI["Panel de Rayos-X en Vivo: Router Jev · Blindaje RAG · Citas Qdrant · Tools Pydantic"]
-        EvalUI["Dashboard Evaluación Retrieval (Recall@10 = 100% · nDCG@10 = 0.884)"]
-    end
+### 1. Capas de la Arquitectura Desacoplada (Web EMCALI 2026 + WhatsApp OpenClaw)
 
-    subgraph API["Backend API Tipada (FastAPI :8000 — api/main.py)"]
-        Endpoints["POST /api/chat/stream (SSE) · POST /api/voice/command\nGET /api/threads/{id} · GET /api/memories/{user_id}\nGET /api/evaluation/retrieval · GET /api/health (PID Monitor)"]
-    end
+| Capa | Componentes Principales | Responsabilidad |
+| :--- | :--- | :--- |
+| **Canales & UI** | Portal React 19 ([`frontend/`](./frontend/)) · WhatsApp Business (`+57 323 892 3289` vía OpenClaw) | Portada con Mapa Operativo de Cali, barra lateral unificada (General / Gestión EMCALI / Académico), PQRS dedicado, drawer flotante de **Mile** con voz neural colombiana (`es-CO-SalomeNeural` / ElevenLabs) y bot de WhatsApp con allowlist E.164. |
+| **API & MCP** | FastAPI ([`api/main.py`](./api/main.py), `api.py`, `api_m3.py`) · Servidor MCP propio ([`mcp_server.py`](./src/emcali_corpus/mcp_server.py)) | Streaming SSE, PBKDF2-SHA256 RBAC (`citizen` vs `manager`), respuestas automáticas por WhatsApp al gestionar PQRS/fallas, y exposición de las 20 herramientas hacia OpenClaw con trazabilidad LangSmith `@traceable`. |
+| **Grafo & Control** | LangGraph `StateGraph` ([`agent_graph.py`](./src/emcali_corpus/agent_graph.py)) · Router **Jev** ([`router.py`](./src/emcali_corpus/router.py)) · Blindaje RAG ([`security.py`](./src/emcali_corpus/security.py)) | Primitivas Jev (`Choice`, `Noul`, `Score`, `Box`) para enrutamiento de chat e ingesta de noticias al mapa, 20 `@tool` Pydantic v2 (16 ciudadanas + 4 gerencia `tools.deny` + 4 HITL), y escudo contra inyección indirecta `<datos_pasivos_corpus>`. |
+| **Datos & Observabilidad** | Qdrant HNSW + BM25 RRF ([`vector_store.py`](./src/emcali_corpus/vector_store.py)) · SQLite Ops + Memoria ([`ops_db.py`](./src/emcali_corpus/ops_db.py), [`memory.py`](./src/emcali_corpus/memory.py)) · LangSmith | 1,386 fragmentos verificados, UMAP 2D, `SqliteSaver` (corto plazo por hilo) + `PersistentSqliteStore` (largo plazo cross-thread por namespace), y trazas unificadas Web + WhatsApp MCP en `emcali-eder-m3`. |
 
-    subgraph Graph["Grafo Agéntico en LangGraph (src/emcali_corpus/agent_graph.py)"]
-        N1["1. memory_ingest\nExtrae hechos al Store + Recupera Store.search()\nAplica SummarizationMiddleware + trim_messages"]
-        N2["2. router_jev (Gatekeeper System One)\nPrimitivas Jev: Choice · Noul · Score · Box"]
-        N3A["3a. direct_reply\nCompuerta Noul=True\n(0 búsquedas en saludos/memoria)"]
-        N3B["3b. structured_tool\n@tool CSV Tarifas + @tool JSON Indicadores\nValidación estricta con Pydantic v2"]
-        N3C["3c. rag_search\n@tool buscar_corpus_qdrant\nHíbrido: Qdrant HNSW Cosine + BM25 (RRF)"]
-        N3D["3d. hybrid_multi_tool\nCruza cifras exactas CSV/JSON\ncon normativa documental de Qdrant"]
-        N4["4. Blindaje RAG (security.py)\nEscáner de Inyección Indirecta +\nEncapsulado <datos_pasivos_corpus>"]
-        N5["5. synthesize\nGeneración con Citas Oficiales + Persistencia en SqliteSaver"]
-    end
+### 2. Memoria de Corto Plazo (`Checkpointer`) vs. Largo Plazo (`Store`)
 
-    subgraph Obs["Observabilidad"]
-        LangSmith["LangSmith Tracing\n(LANGSMITH_TRACING / LANGSMITH_PROJECT)"]
-    end
-
-    Client <-->|"HTTP JSON & SSE EventStream"| API
-    API --> N1
-    N1 --> N2
-    N2 -->|"Choice = direct_reply"| N3A
-    N2 -->|"Choice = structured_tool"| N3B
-    N2 -->|"Choice = rag_search"| N3C
-    N2 -->|"Choice = hybrid_multi_tool"| N3D
-    N3C & N3D --> N4
-    N3A & N3B & N4 --> N5
-    Graph -.->|"Trazas por nodo, latencia y tokens"| LangSmith
-```
-
-### 2. Arquitectura de Memoria: `Checkpointer` (Corto Plazo) vs. `Store` (Largo Plazo)
-
-```mermaid
-flowchart LR
-    subgraph Turn["Turno del Usuario (thread_id + user_id)"]
-        Msg["Mensaje entrante:\n'Me llamo Ana, trabajo en Carvajal\ny vivo en estrato 3'"]
-    end
-
-    subgraph ShortTerm["Memoria de Corto Plazo (Hilo Único)"]
-        CP[("SqliteSaver\ndata/memory/checkpoints.sqlite")]
-        Trim["trim_messages (max_tokens=1800)\n+ SummarizationMiddleware"]
-        TT["Time Travel / Historial de Checkpoints\nSobrevive al reinicio del proceso Backend"]
-    end
-
-    subgraph LongTerm["Memoria de Largo Plazo (Entre Hilos / Cross-Thread)"]
-        ST[("PersistentSqliteStore (BaseStore)\ndata/memory/store.sqlite")]
-        NS["Namespace Jerárquico:\n('users', 'ana-carvajal', 'memories')"]
-        Search["store.put() y store.search()\nDisponible al abrir un Hilo Nuevo (thread_id_2)"]
-    end
-
-    Msg --> CP
-    CP --> Trim --> TT
-    Msg --> ST
-    ST --> NS --> Search
-```
+| Tipo de Memoria | Motor y Almacenamiento | Alcance y Comportamiento |
+| :--- | :--- | :--- |
+| **Corto Plazo (Hilo Único)** | `SqliteSaver` (`data/memory/checkpoints.sqlite`) + `trim_messages (1800 tokens)` + `SummarizationMiddleware` | Conserva el contexto y *Time Travel* de un hilo (`thread_id`) sobreviviendo reinicios del servidor FastAPI. |
+| **Largo Plazo (Cross-Thread)** | `PersistentSqliteStore` (`data/memory/store.sqlite`) con namespace `('users', user_id, 'memories')` | Extrae y recupera hechos persistentes del ciudadano (nombre, barrio, estrato, preferencias) disponibles incluso al abrir un hilo nuevo. |
+| **Historial Aislado por Usuario** | `user_chat_logs` (`data/ops/emcali_ops.sqlite`) | Cada usuario autenticado (o anónimo) mantiene su propio log conversacional aislado (`GET`/`DELETE /api/chat/history`). |
 
 ### 3. Router System One (`Jev`: `Choice`, `Noul`, `Score`, `Box`) y Blindaje del RAG
 
