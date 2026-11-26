@@ -163,32 +163,49 @@ function renderMarkdownContent(content: string): React.ReactNode {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"chat" | "ops" | "xray" | "eval" | "arch">("chat");
-  const [authRole, setAuthRole] = useState<"citizen" | "manager">(() => {
+  const getOrCreateAnonId = (): string => {
+    let anon = localStorage.getItem("emcali_anon_id");
+    if (!anon) {
+      anon = `anon-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem("emcali_anon_id", anon);
+    }
+    return anon;
+  };
+
+  const resolveActiveUserIdentity = (): { uid: string; tid: string; role: "citizen" | "manager" } => {
     try {
       const saved = localStorage.getItem("emcali_auth_session");
-      if (saved && JSON.parse(saved).role === "manager") return "manager";
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.authenticated && parsed?.username) {
+          const uname = String(parsed.username).toLowerCase();
+          return {
+            uid: uname,
+            tid: `user-${uname}-chat`,
+            role: parsed.role === "manager" ? "manager" : "citizen",
+          };
+        }
+      }
     } catch {
       // ignore
     }
-    return "citizen";
-  });
+    const anon = getOrCreateAnonId();
+    return { uid: anon, tid: `${anon}-chat`, role: "citizen" };
+  };
 
-  useEffect(() => {
-    const syncAuth = () => {
-      try {
-        const saved = localStorage.getItem("emcali_auth_session");
-        setAuthRole(saved && JSON.parse(saved).role === "manager" ? "manager" : "citizen");
-      } catch {
-        setAuthRole("citizen");
-      }
-    };
-    window.addEventListener("emcali-auth-changed", syncAuth);
-    window.addEventListener("storage", syncAuth);
-    return () => {
-      window.removeEventListener("emcali-auth-changed", syncAuth);
-      window.removeEventListener("storage", syncAuth);
-    };
-  }, []);
+  const initialIdentity = resolveActiveUserIdentity();
+  const [authRole, setAuthRole] = useState<"citizen" | "manager">(initialIdentity.role);
+  const [health, setHealth] = useState<Record<string, any> | null>(null);
+  const [presets, setPresets] = useState<DemoPreset[]>([]);
+  const [threadId, setThreadId] = useState<string>(initialIdentity.tid);
+  const [userId, setUserId] = useState<string>(initialIdentity.uid);
+  const [sectionFilter, setSectionFilter] = useState<string>("");
+  const [searchMode, setSearchMode] = useState<"hybrid" | "dense" | "lexical">("hybrid");
+  const [useLlm, setUseLlm] = useState<boolean>(true);
+
+  const [question, setQuestion] = useState<string>("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
 
   const getChatAuthHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -203,17 +220,43 @@ export default function App() {
     }
     return headers;
   };
-  const [health, setHealth] = useState<Record<string, any> | null>(null);
-  const [presets, setPresets] = useState<DemoPreset[]>([]);
-  const [threadId, setThreadId] = useState<string>("hilo-sustentacion-01");
-  const [userId, setUserId] = useState<string>("ana-carvajal");
-  const [sectionFilter, setSectionFilter] = useState<string>("");
-  const [searchMode, setSearchMode] = useState<"hybrid" | "dense" | "lexical">("hybrid");
-  const [useLlm, setUseLlm] = useState<boolean>(true);
 
-  const [question, setQuestion] = useState<string>("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const loadPersonalChatHistory = async (targetUserId: string) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/chat/history?user_id=${encodeURIComponent(targetUserId)}`,
+        { headers: getChatAuthHeaders() }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const restored: ChatMessage[] = (data.messages || []).map((m: any) => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: String(m.content || ""),
+        }));
+        setMessages(restored);
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  useEffect(() => {
+    loadPersonalChatHistory(userId);
+    const syncAuth = () => {
+      const next = resolveActiveUserIdentity();
+      setAuthRole(next.role);
+      setUserId(next.uid);
+      setThreadId(next.tid);
+      loadPersonalChatHistory(next.uid);
+    };
+    window.addEventListener("emcali-auth-changed", syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener("emcali-auth-changed", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [lastTurn, setLastTurn] = useState<Partial<TurnPayload> | null>(null);
   const [storeMemories, setStoreMemories] = useState<MemoryItem[]>([]);
@@ -858,11 +901,19 @@ export default function App() {
     await fetchThreadAndStore(newTid, userId);
   };
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
     setMessages([]);
     setLastTurn(null);
     setVoiceBanner("");
     setInterimTranscript("");
+    try {
+      await fetch(`${API_BASE}/api/chat/history?user_id=${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+        headers: getChatAuthHeaders(),
+      });
+    } catch {
+      // silent
+    }
   };
 
   const loadEvaluationMetrics = async () => {

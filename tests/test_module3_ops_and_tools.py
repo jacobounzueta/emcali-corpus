@@ -251,3 +251,16 @@ def test_m3_fastapi_endpoints_rbac_and_map(isolated_ops_db: EmcaliOpsDatabase) -
     assert reg.status_code == 200
     assert reg.json()["role"] == "citizen"
     assert reg.json()["token"]
+
+    # Historial privado de chat aislado por usuario
+    reg_token = reg.json()["token"]
+    client.post(
+        "/api/chat",
+        headers={"Authorization": f"Bearer {reg_token}"},
+        json={"question": "Hola desde nuevo_ciudadano", "use_llm": False},
+    )
+    hist_user = client.get("/api/chat/history", headers={"Authorization": f"Bearer {reg_token}"})
+    hist_mgr = client.get("/api/chat/history", headers={"Authorization": f"Bearer {token}"})
+    assert hist_user.status_code == 200
+    assert hist_user.json()["count"] == 2
+    assert hist_mgr.json()["count"] == 0

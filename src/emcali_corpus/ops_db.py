@@ -263,6 +263,17 @@ class EmcaliOpsDatabase:
                     created_at TEXT NOT NULL,
                     resolved_at TEXT NOT NULL DEFAULT ''
                 );
+
+                CREATE TABLE IF NOT EXISTS user_chat_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    owner_id TEXT NOT NULL,
+                    thread_id TEXT NOT NULL,
+                    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_chat_logs_owner
+                    ON user_chat_logs (owner_id, id);
                 """
             )
             self._conn.commit()
@@ -1185,6 +1196,56 @@ class EmcaliOpsDatabase:
         item["payload"] = json.loads(str(item.pop("payload_json", "{}")))
         item["result"] = json.loads(str(item.pop("result_json", "{}")))
         return item
+
+    # ------------------------------------------------------------------
+    # Historial Privado de Chat por Usuario (SQLite)
+    # ------------------------------------------------------------------
+    def append_chat_message(
+        self,
+        *,
+        owner_id: str,
+        thread_id: str,
+        role: Literal["user", "assistant"],
+        content: str,
+    ) -> None:
+        now = utc_now_iso()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO user_chat_logs (owner_id, thread_id, role, content, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (owner_id.strip().lower(), thread_id.strip(), role, content, now),
+            )
+            self._conn.commit()
+
+    def get_user_chat_log(
+        self,
+        owner_id: str,
+        *,
+        limit: int = 80,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT id, owner_id, thread_id, role, content, created_at
+                FROM user_chat_logs
+                WHERE owner_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (owner_id.strip().lower(), limit),
+            ).fetchall()
+        return [dict(r) for r in reversed(rows)]
+
+    def clear_user_chat_log(self, owner_id: str) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM user_chat_logs WHERE owner_id = ?",
+                (owner_id.strip().lower(),),
+            )
+            self._conn.commit()
+            return cur.rowcount
 
     # ------------------------------------------------------------------
     # Resumen Ejecutivo de Operaciones (RBAC Manager)

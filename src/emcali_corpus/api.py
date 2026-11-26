@@ -25,6 +25,7 @@ from emcali_corpus.memory import (
     search_user_long_term_memories,
     utc_iso,
 )
+from emcali_corpus.ops_db import get_ops_db
 from emcali_corpus.retrieval_eval import run_full_retrieval_benchmark
 from emcali_corpus.tools import (
     query_indicadores_structured,
@@ -249,17 +250,38 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
     def get_validation_presets() -> dict[str, Any]:
         return {"cases": list(DEMO_VALIDATION_CASES)}
 
+    @app.get("/api/chat/history")
+    def get_personal_chat_history(
+        user_id: str = Query(default="", description="ID anónimo si no hay sesión iniciada."),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        role, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else (user_id.strip() or username)
+        items = get_ops_db().get_user_chat_log(owner)
+        return {"owner_id": owner, "role": role, "count": len(items), "messages": items}
+
+    @app.delete("/api/chat/history")
+    def clear_personal_chat_history(
+        user_id: str = Query(default=""),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        _, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else (user_id.strip() or username)
+        deleted = get_ops_db().clear_user_chat_log(owner)
+        return {"owner_id": owner, "deleted": deleted}
+
     @app.post("/api/chat")
     def chat_turn(
         payload: ChatRequest,
         authorization: str | None = Header(default=None),
     ) -> dict[str, Any]:
-        role, _ = _resolve_role_and_user(authorization)
+        role, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else payload.user_id
         try:
             turn = _agent().invoke_turn(
                 payload.question,
                 thread_id=payload.thread_id,
-                user_id=payload.user_id,
+                user_id=owner,
                 user_role=role,
                 section_filter=payload.section_filter,
                 search_mode=payload.search_mode,
@@ -268,6 +290,14 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        ops_db = get_ops_db()
+        ops_db.append_chat_message(
+            owner_id=owner, thread_id=payload.thread_id, role="user", content=payload.question
+        )
+        ops_db.append_chat_message(
+            owner_id=owner, thread_id=payload.thread_id, role="assistant", content=turn.answer
+        )
 
         result = turn.to_dict()
         result["tts_speech_text"] = build_tts_speech_summary(turn.answer)
@@ -281,13 +311,18 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
     ) -> StreamingResponse:
         if not payload.question.strip():
             raise HTTPException(status_code=400, detail="La consulta no puede estar vacía.")
-        role, _ = _resolve_role_and_user(authorization)
+        role, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else payload.user_id
 
         def _event_generator() -> Iterator[str]:
+            ops_db = get_ops_db()
+            ops_db.append_chat_message(
+                owner_id=owner, thread_id=payload.thread_id, role="user", content=payload.question
+            )
             for packet in _agent().stream_turn_events(
                 payload.question,
                 thread_id=payload.thread_id,
-                user_id=payload.user_id,
+                user_id=owner,
                 user_role=role,
                 section_filter=payload.section_filter,
                 search_mode=payload.search_mode,
@@ -297,7 +332,14 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 ev_type = packet["event"]
                 data = packet["data"]
                 if ev_type == "done":
-                    data["tts_speech_text"] = build_tts_speech_summary(str(data.get("answer", "")))
+                    ans_text = str(data.get("answer", ""))
+                    ops_db.append_chat_message(
+                        owner_id=owner,
+                        thread_id=payload.thread_id,
+                        role="assistant",
+                        content=ans_text,
+                    )
+                    data["tts_speech_text"] = build_tts_speech_summary(ans_text)
                     data["server_pid"] = SERVER_PID
                 yield f"event: {ev_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
