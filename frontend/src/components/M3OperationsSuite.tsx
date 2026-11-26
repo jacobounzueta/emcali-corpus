@@ -112,7 +112,12 @@ export const M3OperationsSuite: React.FC = () => {
   const [hotspots, setHotspots] = useState<FailureHotspot[]>([]);
   const [pqrsList, setPqrsList] = useState<any[]>([]);
   const [pqrsEdits, setPqrsEdits] = useState<Record<string, { estado: string; notas: string }>>({});
+  const [failureReportsList, setFailureReportsList] = useState<any[]>([]);
+  const [failureEdits, setFailureEdits] = useState<
+    Record<string, { estado: string; notas: string }>
+  >({});
   const [newsList, setNewsList] = useState<any[]>([]);
+  const [refreshingNews, setRefreshingNews] = useState(false);
   const [newsletterDigest, setNewsletterDigest] = useState<string>("");
   const [toolsCatalog, setToolsCatalog] = useState<ToolCatalogItem[]>([]);
   const [hitlPending, setHitlPending] = useState<any[]>([]);
@@ -173,9 +178,10 @@ export const M3OperationsSuite: React.FC = () => {
 
   const loadMapAndOps = useCallback(async () => {
     try {
-      const [mapRes, pqrsRes, hitlRes] = await Promise.all([
+      const [mapRes, pqrsRes, failRes, hitlRes] = await Promise.all([
         fetch(`${API_BASE}/api/map/overview?servicio=${serviceFilter}`),
         fetch(`${API_BASE}/api/pqrs`),
+        fetch(`${API_BASE}/api/failures`),
         fetch(`${API_BASE}/api/hitl/pending`),
       ]);
       if (mapRes.ok) {
@@ -187,6 +193,10 @@ export const M3OperationsSuite: React.FC = () => {
         const d = await pqrsRes.json();
         setPqrsList(d.items || []);
       }
+      if (failRes.ok) {
+        const d = await failRes.json();
+        setFailureReportsList(d.items || []);
+      }
       if (hitlRes.ok) {
         const d = await hitlRes.json();
         setHitlPending(d.items || []);
@@ -196,24 +206,38 @@ export const M3OperationsSuite: React.FC = () => {
     }
   }, [serviceFilter]);
 
-  const loadNewsAndDigest = useCallback(async () => {
+  const loadNewsAndDigest = useCallback(async (forceLiveRefresh = false) => {
     try {
+      if (forceLiveRefresh) setRefreshingNews(true);
       const [nRes, dRes] = await Promise.all([
-        fetch(`${API_BASE}/api/news?limit=20`),
+        fetch(`${API_BASE}/api/news?limit=25${forceLiveRefresh ? "&refresh=true" : ""}`),
         fetch(`${API_BASE}/api/newsletter/digest`),
       ]);
       if (nRes.ok) {
         const d = await nRes.json();
         setNewsList(d.items || []);
+        if (forceLiveRefresh) {
+          const syncedCount = d.sync?.live_news_ingested ?? 0;
+          setStatusMsg(
+            syncedCount > 0
+              ? `✅ Noticias actualizadas en vivo desde EMCALI (${syncedCount} artículos sincronizados).`
+              : "✅ Noticias actualizadas."
+          );
+          loadMapAndOps();
+        }
       }
       if (dRes.ok) {
         const d = await dRes.json();
         setNewsletterDigest(d.markdown_digest || "");
       }
     } catch {
-      // silent
+      if (forceLiveRefresh) {
+        setStatusMsg("⚠️ No fue posible conectar con el feed en vivo de EMCALI en este momento.");
+      }
+    } finally {
+      if (forceLiveRefresh) setRefreshingNews(false);
     }
-  }, []);
+  }, [loadMapAndOps]);
 
   const loadCatalogAndUmap = useCallback(async (refreshUmap = false) => {
     try {
@@ -372,7 +396,56 @@ export const M3OperationsSuite: React.FC = () => {
       setStatusMsg(`❌ Error al actualizar PQRS: ${data.detail || "Sin permisos"}`);
       return;
     }
-    setStatusMsg(`✅ Radicado ${radicadoId} actualizado a "${data.ticket.estado}".`);
+    setStatusMsg(
+      data.whatsapp_notified
+        ? `✅ Radicado ${radicadoId} actualizado a "${data.ticket.estado}" y notificado por WhatsApp.`
+        : `✅ Radicado ${radicadoId} actualizado a "${data.ticket.estado}".`
+    );
+    loadMapAndOps();
+  };
+
+  const handleUpdateFailureStatus = async (
+    reporteId: string,
+    fallbackEstado: string,
+    fallbackNotas: string
+  ) => {
+    const draft = failureEdits[reporteId] || { estado: fallbackEstado, notas: fallbackNotas };
+    const res = await fetch(`${API_BASE}/api/failures/${encodeURIComponent(reporteId)}`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        nuevo_estado: draft.estado,
+        notas_gestion: draft.notas,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatusMsg(`❌ Error al actualizar reporte de falla: ${data.detail || "Sin permisos"}`);
+      return;
+    }
+    setStatusMsg(
+      data.whatsapp_notified
+        ? `✅ Reporte ${reporteId} actualizado a "${data.report.estado}" y respuesta enviada por WhatsApp.`
+        : `✅ Reporte ${reporteId} actualizado a "${data.report.estado}".`
+    );
+    loadMapAndOps();
+  };
+
+  const handleCloseMaintenance = async (maintenanceId: string) => {
+    const res = await fetch(
+      `${API_BASE}/api/maintenances/${encodeURIComponent(maintenanceId)}/close`,
+      {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ notas_cierre: "Falla resuelta y verificada en terreno." }),
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      setStatusMsg(`❌ Error al cerrar mantenimiento: ${data.detail || "Sin permisos"}`);
+      return;
+    }
+    setStatusMsg(`✅ Mantenimiento ${maintenanceId} finalizado y hotspot resuelto.`);
     loadMapAndOps();
   };
 
@@ -768,14 +841,29 @@ export const M3OperationsSuite: React.FC = () => {
                           🕒 {h.latest_report_at ? h.latest_report_at.replace("T", " ").slice(0, 16) : "Reciente"}
                         </div>
                       </div>
-                      {isManager && (
-                        <button
-                          onClick={() => handleDispatchHotspot(h)}
-                          className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shrink-0 cursor-pointer"
-                        >
-                          🚑 Despachar Brigada
-                        </button>
-                      )}
+                      {isManager &&
+                        ((h as any).crew_dispatched ? (
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                              🚑 Brigada en sitio ({(h as any).assigned_maintenance_id})
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleCloseMaintenance((h as any).assigned_maintenance_id)
+                              }
+                              className="px-2.5 py-0.5 rounded-md bg-[#00875A] hover:bg-[#006e49] text-white text-[10px] font-bold cursor-pointer"
+                            >
+                              ✅ Marcar Resuelto
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleDispatchHotspot(h)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shrink-0 cursor-pointer"
+                          >
+                            🚑 Despachar Brigada
+                          </button>
+                        ))}
                     </div>
                   ))}
                 </div>
@@ -1091,6 +1179,144 @@ export const M3OperationsSuite: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Listado reciente de Reportes de Fallas Ciudadanas con Gestión & Respuesta WhatsApp */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-[#003B71] uppercase">
+                ⚠️ Reportes Ciudadanos de Fallas Almacenados ({failureReportsList.length})
+              </h3>
+              {isManager && (
+                <span className="text-[11px] text-emerald-700 font-semibold">
+                  📱 Al guardar, se responde automáticamente por WhatsApp si hay contacto
+                </span>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="p-2">Reporte</th>
+                    <th className="p-2">Servicio / Barrio</th>
+                    <th className="p-2">Ciudadano / Contacto</th>
+                    <th className="p-2">Descripción</th>
+                    <th className="p-2">Estado</th>
+                    {isManager && <th className="p-2">Tramitar y Responder (WhatsApp)</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {failureReportsList.slice(0, 20).map((f) => {
+                    const draft = failureEdits[f.reporte_id] || {
+                      estado: f.estado,
+                      notas: f.notas_gestion || "",
+                    };
+                    return (
+                      <tr key={f.reporte_id}>
+                        <td className="p-2 font-mono font-bold text-[#003B71]">
+                          {f.reporte_id}
+                          {f.maintenance_id && (
+                            <div className="text-[10px] text-emerald-700 font-semibold">
+                              🔧 {f.maintenance_id}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <span className="uppercase font-semibold">{f.servicio}</span>
+                          <div className="text-[11px] text-slate-600">{f.barrio}</div>
+                        </td>
+                        <td className="p-2">
+                          <div className="font-semibold text-slate-800">{f.nombre_ciudadano}</div>
+                          <div className="text-[10px] text-slate-500">
+                            {f.identificador_tipo}: {f.identificador_valor}
+                          </div>
+                          {f.telefono_e164 && (
+                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[10px] font-mono">
+                              📱 {f.telefono_e164}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2 max-w-[200px]">
+                          <p className="text-[11px] text-slate-700 line-clamp-2" title={f.descripcion}>
+                            {f.descripcion}
+                          </p>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            🕒 {f.created_at ? f.created_at.replace("T", " ").slice(0, 16) : ""}
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-semibold ${
+                              f.estado === "Resuelto"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : f.estado === "Brigada asignada"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {f.estado}
+                          </span>
+                          {f.notas_gestion && (
+                            <p
+                              className="text-[10px] text-slate-500 mt-0.5 max-w-[160px] truncate"
+                              title={f.notas_gestion}
+                            >
+                              {f.notas_gestion}
+                            </p>
+                          )}
+                        </td>
+                        {isManager && (
+                          <td className="p-2">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <select
+                                value={draft.estado}
+                                onChange={(e) =>
+                                  setFailureEdits((prev) => ({
+                                    ...prev,
+                                    [f.reporte_id]: { ...draft, estado: e.target.value },
+                                  }))
+                                }
+                                className="rounded border border-slate-300 px-1.5 py-1 text-[11px] bg-white"
+                              >
+                                <option value="Reportado">Reportado</option>
+                                <option value="Agrupado en alerta">Agrupado en alerta</option>
+                                <option value="Brigada asignada">Brigada asignada</option>
+                                <option value="Resuelto">Resuelto</option>
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="Respuesta al ciudadano..."
+                                value={draft.notas}
+                                onChange={(e) =>
+                                  setFailureEdits((prev) => ({
+                                    ...prev,
+                                    [f.reporte_id]: { ...draft, notas: e.target.value },
+                                  }))
+                                }
+                                className="rounded border border-slate-300 px-1.5 py-1 text-[11px] w-36"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateFailureStatus(
+                                    f.reporte_id,
+                                    f.estado,
+                                    f.notas_gestion || ""
+                                  )
+                                }
+                                className="px-2 py-1 rounded bg-[#00875A] hover:bg-[#006e49] text-white text-[11px] font-semibold cursor-pointer"
+                              >
+                                Responder
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1103,10 +1329,12 @@ export const M3OperationsSuite: React.FC = () => {
                 <Newspaper className="w-4 h-4 text-[#00875A]" /> Noticias Scrapeadas de EMCALI ({newsList.length} mostradas)
               </h3>
               <button
-                onClick={loadNewsAndDigest}
-                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                onClick={() => loadNewsAndDigest(true)}
+                disabled={refreshingNews}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-xs font-semibold flex items-center gap-1 cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshingNews ? "animate-spin" : ""}`} />{" "}
+                {refreshingNews ? "Sincronizando..." : "Actualizar"}
               </button>
             </div>
             <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">

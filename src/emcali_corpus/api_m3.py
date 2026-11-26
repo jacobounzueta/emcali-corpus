@@ -13,9 +13,14 @@ from typing import Any, Literal
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from emcali_corpus.news_sync import build_daily_newsletter_digest, sync_news_from_gold
+from emcali_corpus.news_sync import (
+    build_daily_newsletter_digest,
+    sync_live_emcali_news,
+    sync_news_from_gold,
+)
 from emcali_corpus.ops_db import (
     FailureReportCreateRequest,
+    FailureStatus,
     MaintenanceCreateRequest,
     PqrsCreateRequest,
     PqrsStatus,
@@ -56,6 +61,11 @@ class ToolExecuteRequest(BaseModel):
 
 class PqrsStatusUpdateRequest(BaseModel):
     nuevo_estado: PqrsStatus
+    notas_gestion: str = Field(default="")
+
+
+class FailureStatusUpdateRequest(BaseModel):
+    nuevo_estado: FailureStatus
     notas_gestion: str = Field(default="")
 
 
@@ -405,7 +415,23 @@ def update_pqrs_endpoint(
     )
     if not updated:
         raise HTTPException(status_code=404, detail=f"Radicado {radicado_id} no encontrado.")
-    return {"status": "updated", "ticket": updated}
+    notified = 0
+    phone = db._normalize_phone_e164(str(updated.get("telefono_e164", "")))
+    if phone:
+        nota_txt = (
+            f"\n• Respuesta / Nota de Gestión: {updated['notas_gestion']}"
+            if updated.get("notas_gestion")
+            else ""
+        )
+        msg = (
+            "📋 *Actualización de PQRS — EMCALI*\n"
+            f"Tu solicitud `{updated['radicado_id']}` ({updated['tipo']} · "
+            f"*{str(updated['servicio']).upper()}* en *{updated['barrio']}*) "
+            f"cambió a estado: *{updated['estado']}*.{nota_txt}\n"
+            "Si necesitas seguimiento adicional, respóndeme por aquí. — Mile 👋"
+        )
+        notified = _send_whatsapp_notifications_async([phone], msg)
+    return {"status": "updated", "ticket": updated, "whatsapp_notified": bool(notified)}
 
 
 @router.post("/failures")
@@ -426,6 +452,39 @@ def list_failures_endpoint(
     reports = db.list_failure_reports(servicio=servicio, barrio=barrio)
     hotspots = db.get_failure_hotspots(servicio=servicio)
     return {"count": len(reports), "hotspots": hotspots, "items": reports}
+
+
+@router.patch("/failures/{reporte_id}")
+def update_failure_endpoint(
+    reporte_id: str,
+    payload: FailureStatusUpdateRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_manager(authorization)
+    db = get_ops_db()
+    updated = db.update_failure_report_status(
+        reporte_id,
+        nuevo_estado=payload.nuevo_estado,
+        notas_gestion=payload.notas_gestion,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Reporte {reporte_id} no encontrado.")
+    notified = 0
+    phone = db._normalize_phone_e164(str(updated.get("telefono_e164", "")))
+    if phone:
+        nota_txt = (
+            f"\n• Respuesta / Nota Técnica: {updated['notas_gestion']}"
+            if updated.get("notas_gestion")
+            else ""
+        )
+        msg = (
+            "🛠️ *Actualización de Reporte de Falla — EMCALI*\n"
+            f"Tu reporte `{updated['reporte_id']}` (*{str(updated['servicio']).upper()}* "
+            f"en *{updated['barrio']}*) pasó a estado: *{updated['estado']}*.{nota_txt}\n"
+            "Gracias por reportar. Cualquier novedad respóndeme por aquí. — Mile 👋"
+        )
+        notified = _send_whatsapp_notifications_async([phone], msg)
+    return {"status": "updated", "report": updated, "whatsapp_notified": bool(notified)}
 
 
 # ---------------------------------------------------------------------------
@@ -507,19 +566,28 @@ def list_news_endpoint(
     query: str = "",
     solo_mantenimientos: bool = False,
     limit: int = 15,
+    refresh: bool = False,
 ) -> dict[str, Any]:
     db = get_ops_db()
+    sync_summary: dict[str, Any] | None = None
+    if refresh:
+        with contextlib.suppress(Exception):
+            sync_summary = sync_live_emcali_news(db)
     if not db.list_news(limit=1):
         sync_news_from_gold(db)
     items = db.list_news(query=query, solo_mantenimientos=solo_mantenimientos, limit=limit)
-    return {"count": len(items), "items": items}
+    return {"count": len(items), "items": items, "sync": sync_summary}
 
 
 @router.post("/news/sync")
 def sync_news_endpoint(authorization: str | None = Header(default=None)) -> dict[str, Any]:
     _require_manager(authorization)
     db = get_ops_db()
-    return {"status": "synced", **sync_news_from_gold(db)}
+    gold_res = sync_news_from_gold(db)
+    live_res: dict[str, Any] = {}
+    with contextlib.suppress(Exception):
+        live_res = sync_live_emcali_news(db)
+    return {"status": "synced", **gold_res, **live_res}
 
 
 @router.get("/newsletter/digest")

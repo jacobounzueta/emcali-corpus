@@ -203,6 +203,7 @@ class EmcaliOpsDatabase:
                     telefono_e164 TEXT NOT NULL DEFAULT '',
                     estado TEXT NOT NULL DEFAULT 'Reportado',
                     maintenance_id TEXT NOT NULL DEFAULT '',
+                    notas_gestion TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL
                 );
 
@@ -277,6 +278,15 @@ class EmcaliOpsDatabase:
                 """
             )
             self._conn.commit()
+            cols = {
+                str(r[1])
+                for r in self._conn.execute("PRAGMA table_info(failure_reports)").fetchall()
+            }
+            if "notas_gestion" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE failure_reports ADD COLUMN notas_gestion TEXT NOT NULL DEFAULT ''"
+                )
+                self._conn.commit()
 
     def _seed_defaults(self) -> None:
         """Crea cuentas RBAC iniciales y puntos base si la DB está vacía."""
@@ -741,6 +751,32 @@ class EmcaliOpsDatabase:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def update_failure_report_status(
+        self,
+        reporte_id: str,
+        *,
+        nuevo_estado: FailureStatus,
+        notas_gestion: str = "",
+    ) -> dict[str, Any] | None:
+        """Actualiza estado y nota de respuesta de un reporte ciudadano de falla."""
+        with self._lock:
+            cur = self._conn.execute(
+                """
+                UPDATE failure_reports
+                SET estado = ?, notas_gestion = ?
+                WHERE UPPER(reporte_id) = UPPER(?)
+                """,
+                (nuevo_estado, notas_gestion.strip(), reporte_id.strip()),
+            )
+            self._conn.commit()
+            if cur.rowcount == 0:
+                return None
+            row = self._conn.execute(
+                "SELECT * FROM failure_reports WHERE UPPER(reporte_id) = UPPER(?)",
+                (reporte_id.strip(),),
+            ).fetchone()
+        return dict(row) if row else None
+
     def get_failure_hotspots(self, *, servicio: str | None = None) -> list[dict[str, Any]]:
         """Agrupa reportes abiertos por (barrio, servicio) y calcula severidad para brigadas."""
         clauses = ["estado != 'Resuelto'"]
@@ -760,6 +796,7 @@ class EmcaliOpsDatabase:
                     AVG(lng) AS lng,
                     COUNT(*) AS report_count,
                     MAX(created_at) AS latest_report_at,
+                    MAX(maintenance_id) AS assigned_maintenance_id,
                     GROUP_CONCAT(reporte_id, ',') AS report_ids
                 FROM failure_reports
                 {where}
@@ -772,6 +809,7 @@ class EmcaliOpsDatabase:
         hotspots: list[dict[str, Any]] = []
         for r in rows:
             count = int(r["report_count"])
+            assigned_maint_id = str(r["assigned_maintenance_id"] or "").strip()
             if count >= 4:
                 severity = "critical_dispatch"
                 label = "Brigada Sugerida (Crítico)"
@@ -791,7 +829,9 @@ class EmcaliOpsDatabase:
                     "report_count": count,
                     "severity": severity,
                     "severity_label": label,
-                    "dispatch_recommended": count >= 2,
+                    "dispatch_recommended": count >= 2 and not assigned_maint_id,
+                    "crew_dispatched": bool(assigned_maint_id),
+                    "assigned_maintenance_id": assigned_maint_id,
                     "latest_report_at": r["latest_report_at"],
                     "report_ids": str(r["report_ids"] or "").split(","),
                 }
@@ -858,6 +898,22 @@ class EmcaliOpsDatabase:
         if loc is None:
             raise ValueError(f"El barrio '{barrio}' no figura en la cobertura oficial de EMCALI.")
         target_barrio = loc.barrio
+        with self._lock:
+            existing_active = self._conn.execute(
+                """
+                SELECT * FROM maintenance_points
+                WHERE LOWER(barrio) = LOWER(?) AND servicio = ?
+                  AND estado != 'Finalizado' AND fuente = 'promovido_falla'
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (target_barrio, servicio),
+            ).fetchone()
+        if existing_active is not None:
+            maint = dict(existing_active)
+            maint["already_dispatched"] = True
+            maint["notifiable_phones"] = []
+            maint["linked_failure_reports"] = 0
+            return maint
         maint = self.create_maintenance_point(
             MaintenanceCreateRequest(
                 titulo=(f"Despliegue de brigada por fallas ({servicio}) — {target_barrio}"),
