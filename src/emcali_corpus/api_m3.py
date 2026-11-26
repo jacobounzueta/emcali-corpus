@@ -215,9 +215,10 @@ def _ensure_phone_in_whatsapp_allowlist(
             _send_whatsapp_notifications_async(
                 [clean],
                 (
-                    f"¡Hola{saludo_nombre}! Soy Melva, asistente virtual de EMCALI 👋. "
-                    "Tu número ya quedó habilitado en WhatsApp. Escríbeme aquí para consultar "
-                    "tarifas, mantenimientos, radicar PQRS o reportar fallas en Cali."
+                    f"¡Hola{saludo_nombre}, vecino! Soy Doña Melva, tu asistente virtual de "
+                    "EMCALI 👋. Ya quedaste habilitado por aquí en WhatsApp; vea pues, cuando "
+                    "necesites revisar tarifas, mantenimientos en tu barrio, radicar una PQRS o "
+                    "reportar alguna falla en Cali, me escribes con toda confianza."
                 ),
             )
         return True, updated
@@ -428,7 +429,8 @@ def update_pqrs_endpoint(
             f"Tu solicitud `{updated['radicado_id']}` ({updated['tipo']} · "
             f"*{str(updated['servicio']).upper()}* en *{updated['barrio']}*) "
             f"cambió a estado: *{updated['estado']}*.{nota_txt}\n"
-            "Si necesitas seguimiento adicional, respóndeme por aquí. — Melva 👋"
+            "Si necesitas seguimiento adicional, me escribes con confianza por aquí. "
+            "— Doña Melva 👋"
         )
         notified = _send_whatsapp_notifications_async([phone], msg)
     return {"status": "updated", "ticket": updated, "whatsapp_notified": bool(notified)}
@@ -481,7 +483,8 @@ def update_failure_endpoint(
             "🛠️ *Actualización de Reporte de Falla — EMCALI*\n"
             f"Tu reporte `{updated['reporte_id']}` (*{str(updated['servicio']).upper()}* "
             f"en *{updated['barrio']}*) pasó a estado: *{updated['estado']}*.{nota_txt}\n"
-            "Gracias por reportar. Cualquier novedad respóndeme por aquí. — Melva 👋"
+            "¡Gracias por avisarnos, vecino! Cualquier novedad me escribes por aquí. "
+            "— Doña Melva 👋"
         )
         notified = _send_whatsapp_notifications_async([phone], msg)
     return {"status": "updated", "report": updated, "whatsapp_notified": bool(notified)}
