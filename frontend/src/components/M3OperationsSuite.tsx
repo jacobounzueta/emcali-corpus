@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  Droplets,
+  Info,
   Lock,
   LogOut,
   MapPin,
@@ -10,7 +12,10 @@ import {
   ShieldCheck,
   Sparkles,
   UserCheck,
+  UserPlus,
+  Wifi,
   Wrench,
+  Zap,
 } from "lucide-react";
 import {
   CaliMapPanel,
@@ -74,7 +79,9 @@ const UMAP_SECTION_COLORS: Record<string, string> = {
 };
 
 export const M3OperationsSuite: React.FC = () => {
-  const [subTab, setSubTab] = useState<"map" | "pqrs" | "news" | "umap_tools" | "iam">("map");
+  const [subTab, setSubTab] = useState<"map" | "pqrs" | "news" | "umap_tools" | "iam" | "auth">(
+    "map"
+  );
   const [session, setSession] = useState<AuthSession>(() => {
     try {
       const saved = localStorage.getItem("emcali_auth_session");
@@ -88,8 +95,15 @@ export const M3OperationsSuite: React.FC = () => {
       display_name: "Ciudadano (Acceso Público)",
     };
   });
-  const [loginUser, setLoginUser] = useState("rommel");
-  const [loginPass, setLoginPass] = useState("emcali-ops-2026");
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [regForm, setRegForm] = useState({
+    username: "",
+    display_name: "",
+    password: "",
+    phone_e164: "",
+  });
+  const [showHotspotInfo, setShowHotspotInfo] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string>("");
 
   // Map & Ops state
@@ -275,7 +289,37 @@ export const M3OperationsSuite: React.FC = () => {
     setSession(nextSession);
     localStorage.setItem("emcali_auth_session", JSON.stringify(nextSession));
     window.dispatchEvent(new Event("emcali-auth-changed"));
+    setLoginUser("");
+    setLoginPass("");
+    setSubTab("map");
     setStatusMsg(`✅ Sesión activa: ${data.display_name} (${data.role.toUpperCase()})`);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(regForm),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatusMsg(`❌ Error en registro: ${data.detail}`);
+      return;
+    }
+    const nextSession: AuthSession = {
+      authenticated: true,
+      token: data.token,
+      username: data.username,
+      display_name: data.display_name,
+      role: data.role,
+    };
+    setSession(nextSession);
+    localStorage.setItem("emcali_auth_session", JSON.stringify(nextSession));
+    window.dispatchEvent(new Event("emcali-auth-changed"));
+    setRegForm({ username: "", display_name: "", password: "", phone_e164: "" });
+    setSubTab("map");
+    setStatusMsg(`🎉 Cuenta creada e iniciada: ${data.display_name} (${data.role.toUpperCase()})`);
   };
 
   const handleLogout = () => {
@@ -287,7 +331,8 @@ export const M3OperationsSuite: React.FC = () => {
     setSession(guest);
     localStorage.removeItem("emcali_auth_session");
     window.dispatchEvent(new Event("emcali-auth-changed"));
-    setStatusMsg("🔄 Modo Ciudadano activo (herramientas de gestión bloqueadas por RBAC).");
+    if (subTab === "iam") setSubTab("map");
+    setStatusMsg("🔄 Sesión cerrada. Modo Ciudadano público activo.");
   };
 
   const handleCreatePqrs = async (e: React.FormEvent) => {
@@ -526,35 +571,20 @@ export const M3OperationsSuite: React.FC = () => {
           <span className="text-xs text-slate-600">{session.display_name}</span>
         </div>
 
-        {isManager ? (
+        {session.authenticated ? (
           <button
             onClick={handleLogout}
             className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
           >
-            <LogOut className="w-3.5 h-3.5" /> Salir a Modo Ciudadano
+            <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión
           </button>
         ) : (
-          <form onSubmit={handleLogin} className="flex flex-wrap items-center gap-2">
-            <input
-              value={loginUser}
-              onChange={(e) => setLoginUser(e.target.value)}
-              placeholder="Usuario gestión"
-              className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs w-28"
-            />
-            <input
-              type="password"
-              value={loginPass}
-              onChange={(e) => setLoginPass(e.target.value)}
-              placeholder="Contraseña"
-              className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs w-32"
-            />
-            <button
-              type="submit"
-              className="px-3 py-1.5 rounded-lg bg-[#003B71] hover:bg-[#00284D] text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
-            >
-              <Lock className="w-3.5 h-3.5" /> Entrar Gestión EMCALI
-            </button>
-          </form>
+          <button
+            onClick={() => setSubTab("auth")}
+            className="px-3.5 py-1.5 rounded-lg bg-[#003B71] hover:bg-[#00284D] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+          >
+            <Lock className="w-3.5 h-3.5" /> Iniciar Sesión / Registrarse
+          </button>
         )}
       </section>
 
@@ -567,14 +597,15 @@ export const M3OperationsSuite: React.FC = () => {
         </div>
       )}
 
-      {/* Sub-navegación M3 */}
+      {/* Sub-navegación M3 (IAM oculto si no es manager; Login/Registro visible si no autenticado) */}
       <div className="flex flex-wrap gap-2">
         {[
           { id: "map", label: "🗺️ Mapa Cali, Mantenimientos & Brigadas" },
           { id: "pqrs", label: "📝 PQRS & Reporte de Fallas" },
-          { id: "news", label: "📰 Noticias (310+) & Boletín OpenClaw" },
+          { id: "news", label: "📰 Noticias & Boletín OpenClaw" },
           { id: "umap_tools", label: "🧬 UMAP 2D, 20 Tools & HITL" },
-          { id: "iam", label: "🔐 IAM Usuarios & WhatsApp Allowlist" },
+          ...(isManager ? [{ id: "iam", label: "🔐 IAM Usuarios & WhatsApp Allowlist" }] : []),
+          ...(!session.authenticated ? [{ id: "auth", label: "🔑 Iniciar Sesión / Registro" }] : []),
         ].map((t) => (
           <button
             key={t.id}
@@ -582,7 +613,7 @@ export const M3OperationsSuite: React.FC = () => {
             className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
               subTab === t.id
                 ? "bg-[#003B71] text-white border-[#003B71] shadow"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >
             {t.label}
@@ -604,18 +635,49 @@ export const M3OperationsSuite: React.FC = () => {
                   En vivo (4s)
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {["todos", "energia", "acueducto", "alcantarillado", "telco_fibra"].map((s) => (
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  {
+                    id: "todos",
+                    label: "Todos",
+                    inactive: "bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200",
+                    active:
+                      "bg-gradient-to-r from-amber-500 via-sky-600 to-emerald-600 text-white border-transparent shadow-sm",
+                  },
+                  {
+                    id: "energia",
+                    label: "Energía",
+                    inactive: "bg-amber-100 text-amber-950 border-amber-300 hover:bg-amber-200",
+                    active: "bg-amber-500 text-white border-amber-600 shadow-sm",
+                  },
+                  {
+                    id: "acueducto",
+                    label: "Acueducto",
+                    inactive: "bg-sky-100 text-sky-950 border-sky-300 hover:bg-sky-200",
+                    active: "bg-sky-600 text-white border-sky-700 shadow-sm",
+                  },
+                  {
+                    id: "alcantarillado",
+                    label: "Alcantarillado",
+                    inactive: "bg-indigo-100 text-indigo-950 border-indigo-300 hover:bg-indigo-200",
+                    active: "bg-indigo-600 text-white border-indigo-700 shadow-sm",
+                  },
+                  {
+                    id: "telco_fibra",
+                    label: "Telco Fibra",
+                    inactive:
+                      "bg-emerald-100 text-emerald-950 border-emerald-300 hover:bg-emerald-200",
+                    active: "bg-emerald-600 text-white border-emerald-700 shadow-sm",
+                  },
+                ].map((f) => (
                   <button
-                    key={s}
-                    onClick={() => setServiceFilter(s)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer ${
-                      serviceFilter === s
-                        ? "bg-[#00875A] text-white"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    key={f.id}
+                    onClick={() => setServiceFilter(f.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                      serviceFilter === f.id ? f.active : f.inactive
                     }`}
                   >
-                    {s}
+                    {f.label}
                   </button>
                 ))}
               </div>
@@ -631,9 +693,35 @@ export const M3OperationsSuite: React.FC = () => {
           <div className="space-y-4">
             {/* Hotspots de Fallas para Asignación de Brigadas */}
             <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-2.5">
-              <h3 className="text-xs font-bold text-rose-700 flex items-center gap-1.5 uppercase">
-                <AlertTriangle className="w-4 h-4" /> Hotspots de Fallas Ciudadanas ({hotspots.length})
-              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-bold text-rose-700 flex items-center gap-1.5 uppercase">
+                  <AlertTriangle className="w-4 h-4" /> Hotspots de Fallas Ciudadanas ({hotspots.length})
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowHotspotInfo((prev) => !prev)}
+                  title="¿Qué es un Hotspot de Falla Ciudadana?"
+                  className="p-1 rounded-full text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                  aria-label="Información sobre hotspots de fallas ciudadanas"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+              </div>
+              {showHotspotInfo && (
+                <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-300 text-[11px] text-slate-700 leading-relaxed">
+                  <b>¿Qué es un Hotspot?</b> Agrupa automáticamente los reportes de fallas
+                  enviados por ciudadanos (WhatsApp o Web) por <b>barrio y servicio</b>:
+                  <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                    <li><b>1 reporte:</b> seguimiento preventivo.</li>
+                    <li><b>2–3 reportes:</b> alerta de acumulación en el sector.</li>
+                    <li><b>4+ reportes:</b> crítico — brigada recomendada.</li>
+                  </ul>
+                  <div className="mt-1">
+                    Gestión EMCALI usa estas alertas para <b>priorizar y despachar brigadas</b> y
+                    notificar automáticamente por WhatsApp a los afectados.
+                  </div>
+                </div>
+              )}
               {hotspots.length === 0 ? (
                 <p className="text-xs text-slate-500">
                   Sin alertas de fallas abiertas. Reporta una falla en la pestaña PQRS & Fallas para ver el agrupamiento en vivo.
@@ -938,37 +1026,53 @@ export const M3OperationsSuite: React.FC = () => {
                 <RefreshCw className="w-3.5 h-3.5" /> Actualizar
               </button>
             </div>
-            <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-              {newsList.map((n) => (
-                <div
-                  key={n.noticia_id}
-                  className="p-3 rounded-xl border border-slate-200 hover:border-sky-300 transition text-xs space-y-1"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-slate-900">{n.titulo}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 text-slate-700">
-                        📅 {n.fecha_publicacion || (n.scraped_at ? String(n.scraped_at).slice(0, 10) : "2026")}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          n.es_mantenimiento
-                            ? "bg-amber-100 text-amber-900"
-                            : "bg-sky-100 text-sky-900"
-                        }`}
-                      >
-                        {n.categoria}
-                      </span>
+            <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
+              {newsList.map((n) => {
+                const catLow = String(n.categoria || "").toLowerCase();
+                const isMaint = Boolean(n.es_mantenimiento) || catLow.includes("manten") || catLow.includes("reparac");
+                let iconBg = "bg-slate-100 text-[#003B71] border-slate-200";
+                let CategoryIcon = Newspaper;
+                if (isMaint) {
+                  iconBg = "bg-amber-100 text-amber-800 border-amber-300";
+                  CategoryIcon = Wrench;
+                } else if (catLow.includes("energ")) {
+                  iconBg = "bg-yellow-100 text-yellow-800 border-yellow-300";
+                  CategoryIcon = Zap;
+                } else if (catLow.includes("acueducto") || catLow.includes("alcantarillado")) {
+                  iconBg = "bg-sky-100 text-sky-800 border-sky-300";
+                  CategoryIcon = Droplets;
+                } else if (catLow.includes("telco") || catLow.includes("fibra")) {
+                  iconBg = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                  CategoryIcon = Wifi;
+                }
+                return (
+                  <div
+                    key={n.noticia_id}
+                    className="p-3 rounded-xl border border-slate-200 hover:border-sky-300 transition text-xs flex items-start gap-3"
+                  >
+                    <div
+                      title={n.categoria}
+                      className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${iconBg}`}
+                    >
+                      <CategoryIcon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-bold text-slate-900 leading-snug">{n.titulo}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 text-slate-700 shrink-0">
+                          📅 {n.fecha_publicacion || (n.scraped_at ? String(n.scraped_at).slice(0, 10) : "2026")}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 line-clamp-2">{n.resumen}</p>
+                      {n.barrios?.length > 0 && (
+                        <div className="text-[11px] text-emerald-700 font-medium">
+                          📍 Barrios detectados: {n.barrios.join(", ")}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <p className="text-slate-600 line-clamp-2">{n.resumen}</p>
-                  {n.barrios?.length > 0 && (
-                    <div className="text-[11px] text-emerald-700 font-medium">
-                      📍 Barrios detectados: {n.barrios.join(", ")}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -1125,15 +1229,106 @@ export const M3OperationsSuite: React.FC = () => {
           </div>
         </div>
       )}
-      {/* SUB-TAB 5: IAM USUARIOS & WHATSAPP ALLOWLIST (SOLO GESTIÓN EMCALI) */}
-      {subTab === "iam" && (
-        <div className="space-y-4">
-          {!isManager ? (
-            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-6 text-xs text-amber-900">
-              🛡️ <b>Acceso restringido (RBAC):</b> Inicia sesión en modo <b>Gestión EMCALI</b> arriba (cuenta admin por defecto: <code>rommel</code> / <code>emcali-ops-2026</code>) para controlar usuarios RBAC y el allowlist E.164 de WhatsApp en vivo.
+      {/* SUB-TAB 6: INICIAR SESIÓN & REGISTRO CIUDADANO (SIN CREDENCIALES PRECARGADAS) */}
+      {subTab === "auth" && !session.authenticated && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <form
+            onSubmit={handleLogin}
+            className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3 text-xs"
+          >
+            <h3 className="text-sm font-bold text-[#003B71] flex items-center gap-1.5">
+              <Lock className="w-4 h-4 text-[#00875A]" /> Iniciar Sesión (Ciudadano o Gestión EMCALI)
+            </h3>
+            <p className="text-slate-600">
+              Ingresa con tus credenciales registradas. Las cuentas con rol <b>Gestión EMCALI</b>{" "}
+              desbloquean el panel IAM, despacho de brigadas y el Chatbot Gerencial (20 tools).
+            </p>
+            <div className="space-y-2">
+              <input
+                required
+                autoComplete="username"
+                value={loginUser}
+                onChange={(e) => setLoginUser(e.target.value)}
+                placeholder="Nombre de usuario"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300"
+              />
+              <input
+                required
+                type="password"
+                autoComplete="current-password"
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                placeholder="Contraseña"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300"
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-xl bg-[#003B71] hover:bg-[#00284D] text-white font-bold cursor-pointer"
+            >
+              Entrar
+            </button>
+          </form>
+
+          <form
+            onSubmit={handleRegister}
+            className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3 text-xs"
+          >
+            <h3 className="text-sm font-bold text-[#00875A] flex items-center gap-1.5">
+              <UserPlus className="w-4 h-4" /> Registro de Nuevo Usuario Ciudadano
+            </h3>
+            <p className="text-slate-600">
+              Crea tu cuenta ciudadana para dar seguimiento a tus PQRS, reportes de fallas y
+              preferencias de barrio. <i>(Por seguridad RBAC, el auto-registro asigna rol Ciudadano.)</i>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                required
+                minLength={3}
+                autoComplete="username"
+                value={regForm.username}
+                onChange={(e) => setRegForm({ ...regForm, username: e.target.value })}
+                placeholder="Usuario (mín. 3 caracteres)"
+                className="px-3 py-2 rounded-lg border border-slate-300"
+              />
+              <input
+                required
+                value={regForm.display_name}
+                onChange={(e) => setRegForm({ ...regForm, display_name: e.target.value })}
+                placeholder="Nombre completo"
+                className="px-3 py-2 rounded-lg border border-slate-300"
+              />
+              <input
+                required
+                type="password"
+                minLength={6}
+                autoComplete="new-password"
+                value={regForm.password}
+                onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                placeholder="Contraseña (mín. 6 caracteres)"
+                className="px-3 py-2 rounded-lg border border-slate-300"
+              />
+              <input
+                value={regForm.phone_e164}
+                onChange={(e) => setRegForm({ ...regForm, phone_e164: e.target.value })}
+                placeholder="WhatsApp E.164 opcional (+57...)"
+                className="px-3 py-2 rounded-lg border border-slate-300 font-mono"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-xl bg-[#00875A] hover:bg-emerald-700 text-white font-bold cursor-pointer"
+            >
+              Crear Cuenta Ciudadana
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* SUB-TAB 5: IAM USUARIOS & WHATSAPP ALLOWLIST (SOLO GESTIÓN EMCALI) */}
+      {subTab === "iam" && isManager && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Control en vivo del Allowlist WhatsApp (OpenClaw) */}
               <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
                 <h3 className="text-sm font-bold text-[#003B71]">
@@ -1259,7 +1454,6 @@ export const M3OperationsSuite: React.FC = () => {
                 </div>
               </div>
             </div>
-          )}
         </div>
       )}
     </main>

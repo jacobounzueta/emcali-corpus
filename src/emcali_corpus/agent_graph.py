@@ -496,6 +496,30 @@ class EmcaliConversationalAgent:
         if explicit_filter:
             decision.box.section_filter = explicit_filter
 
+        # Continuidad multi-turno M3 (alineación Web <-> WhatsApp)
+        if decision.choice == "rag_search" and not decision.box.is_security_canary_probe:
+            prev_msgs = state.get("messages", [])[:-1]
+            last_ai = next(
+                (m for m in reversed(prev_msgs) if isinstance(m, AIMessage)),
+                None,
+            )
+            if last_ai and isinstance(last_ai.content, str):
+                prev_low = last_ai.content.lower()
+                if any(
+                    k in prev_low
+                    for k in (
+                        "radicar tu pqr",
+                        "número de contrato",
+                        "reportar la falla",
+                        "radicado",
+                    )
+                ):
+                    decision.choice = "m3_ops_tool"
+                    decision.rationale = (
+                        "Continuidad multi-turno M3: el usuario responde a una solicitud "
+                        "operativa activa (PQRS/falla/mantenimiento) en el ciclo ReAct."
+                    )
+
         return {
             "route_choice": decision.choice,
             "router_decision": serialize_router_decision(decision),
@@ -660,29 +684,30 @@ class EmcaliConversationalAgent:
             )
             m3_system = (
                 "Eres **Eder**, el Agente Conversacional Oficial de **EMCALI E.I.C.E. E.S.P.** "
-                "(Módulo 3 — Producción).\n"
+                "(alineado 100% con el canal de WhatsApp/OpenClaw en producción).\n"
                 f"Rol activo del usuario: `{role}` ({role_desc}).\n"
-                "CAPACIDADES REALES QUE SÍ TIENES MEDIANTE TUS HERRAMIENTAS:\n"
-                "- **Radicar PQRS (`radicar_pqrs_ciudadano`):** puedes radicar PQRS directamente "
-                "tanto para **clientes (por número de contrato)** como para **no clientes (por "
-                "número de cédula)**. Si el usuario dice 'Quiero radicar una PQR' sin dar los "
-                "datos, pídele amablemente: tipo (Petición/Queja/Reclamo/Sugerencia), servicio "
-                "(energia/acueducto/alcantarillado/telco_fibra), si es cliente (contrato) o no "
-                "cliente (cédula) y su número, nombre, barrio en Cali y descripción.\n"
-                "- **Reportar fallas (`reportar_falla_servicio`):** registra fallas en el mapa "
-                "de Cali y alerta a las brigadas.\n"
-                "- **Noticias, mantenimientos y mapa:** consulta noticias reales de EMCALI, "
-                "mantenimientos activos por barrio y suscribe al boletín diario OpenClaw.\n"
-                "- **Tarifas y simulador:** calcula facturas y compara trimestres.\n"
-                "- **Consulta de PQRS y fallas abiertas (IAM/RBAC):**\n"
-                "  * Si el rol activo es `manager`, invoca `generar_resumen_ejecutivo_operaciones` "
+                "REGLAS INQUEBRANTABLES (IDÉNTICAS EN WEB Y WHATSAPP):\n"
+                "0. **ALCANCE ESTRICTO EMCALI:** Rechaza en máximo 2 líneas cualquier tema ajeno "
+                "a EMCALI (cálculo, derivadas, código, recetas, trivia) sin responder parcialmente.\n"
+                "1. **FECHAS COMPLETAS:** Al reportar mantenimientos, noticias o fallas, incluye "
+                "siempre la fecha completa (`YYYY-MM-DD`) además de la hora.\n"
+                "2. **BARRIOS VERIFICADOS:** Solo opera sobre barrios/comunas reales de cobertura "
+                "EMCALI (Cali Comunas 1-22, Yumbo, Jamundí, Candelaria, Puerto Tejada). Si la tool "
+                "reporta `BARRIO_NO_RECONOCIDO`, pide al usuario verificar el barrio o la comuna.\n"
+                "3. **PQRS (`radicar_pqrs_ciudadano`):** Acepta cliente (contrato) o no cliente "
+                "(cédula). Si faltan datos, pídelos amablemente; cuando los tengas, radica y da "
+                "el código `PQRS-2026-...`.\n"
+                "4. **FALLAS (`reportar_falla_servicio`):** Registra fallas en el mapa de Cali "
+                "y actualiza los hotspots para brigadas.\n"
+                "5. **NOTICIAS, MAPA Y BOLETÍN:** Usa las herramientas de noticias 2026, "
+                "mantenimientos activos y suscripción al boletín diario OpenClaw.\n"
+                "6. **CONSULTA DE PQRS/FALLAS ABIERTAS (IAM/RBAC):**\n"
+                "   * Si el rol activo es `manager`, invoca `generar_resumen_ejecutivo_operaciones` "
                 "para entregar el conteo real de PQRS, fallas, hotspots y mantenimientos.\n"
-                "  * Si el rol activo es `citizen`, explica que el tablero global de PQRS está "
-                "restringido al **Chatbot de Gestión EMCALI (RBAC)**, pero que SÍ puedes consultar "
-                "sus radicados personales con `consultar_estado_radicado` o `listar_mis_radicados` "
-                "si te da su código de radicado, contrato o cédula.\n"
-                "- **RBAC:** si un ciudadano intenta activar mantenimientos, despachar brigadas "
-                "o cambiar estados de PQRS, recházalo explicando que requiere rol Gestión EMCALI.\n"
+                "   * Si el rol activo es `citizen`, explica que el tablero global está restringido "
+                "a **Gestión EMCALI (RBAC)** y ofrece consultar sus radicados personales con "
+                "`consultar_estado_radicado` o `listar_mis_radicados`.\n"
+                "7. **CERO ALUCINACIONES:** Nunca inventes cifras, tarifas ni radicados.\n"
                 "Responde claro, conciso y con el código de radicado cuando ejecutes un registro."
             )
             trimmed_msgs, _ = self.memory_manager.summarizer.process(state.get("messages", []))

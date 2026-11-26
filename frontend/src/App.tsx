@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Bot,
   CheckCircle2,
+  CornerDownRight,
   Cpu,
   Database,
   FileSpreadsheet,
@@ -926,7 +927,7 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-slate-200 text-slate-900 flex flex-col">
       {/* Header Institucional EMCALI E.I.C.E. E.S.P. */}
       <header className="bg-[#003B71] text-white shadow-md sticky top-0 z-30 border-b-4 border-[#00875A]">
         <div className="max-w-[1440px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -935,9 +936,7 @@ export default function App() {
               <img
                 src="/eder-avatar.jpg"
                 alt="Eder caricatura"
-                className={`h-10 w-10 rounded-full object-cover shadow-md border-2 border-emerald-300 transition-transform ${
-                  isStreaming ? "eder-orbit" : ""
-                }`}
+                className="h-10 w-10 rounded-full object-cover shadow-md border-2 border-emerald-300"
               />
             </div>
             <div>
@@ -1042,25 +1041,18 @@ export default function App() {
       {/* VISTA 1: PRODUCTO CIUDADANO EMCALI (LIMPIO, SIN JERGAS ACADÉMICAS) */}
       {activeTab === "chat" && (
         <main className="max-w-5xl w-full mx-auto px-4 py-5 flex-1 flex flex-col gap-3.5">
-          {/* Accesos rápidos de servicios EMCALI + Nueva conversación */}
+          {/* Barra de acciones de conversación */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {quickCitizenTopics.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => handleSendQuestion(item.q)}
-                  disabled={isStreaming}
-                  className="px-3 py-1.5 rounded-full bg-white hover:bg-emerald-50 border border-slate-200 hover:border-[#00875A]/50 text-xs font-medium text-[#003B71] shadow-xs transition cursor-pointer disabled:opacity-50"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            <span className="text-xs font-semibold text-slate-600">
+              {authRole === "manager"
+                ? "🔐 Modo Chatbot Gerencial EMCALI (20 herramientas activas)"
+                : "💬 Chat de Atención Ciudadana EMCALI (sincronizado con WhatsApp)"}
+            </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleClearChat}
                 disabled={messages.length === 0 || isStreaming}
-                className="px-3 py-1.5 rounded-full bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-700 text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-40"
+                className="px-3 py-1.5 rounded-full bg-white hover:bg-rose-50 border border-slate-300 hover:border-rose-300 text-slate-700 hover:text-rose-700 text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-40"
                 title="Limpiar los mensajes visibles en el chat"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-500" />
@@ -1068,7 +1060,7 @@ export default function App() {
               </button>
               <button
                 onClick={handleCreateNewThread}
-                className="px-3 py-1.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="px-3 py-1.5 rounded-full bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
                 title="Iniciar una nueva conversación"
               >
                 <PlusCircle className="w-3.5 h-3.5 text-[#00875A]" />
@@ -1278,6 +1270,28 @@ export default function App() {
               <span>Enviar</span>
             </button>
           </form>
+
+          {/* Sugerencias de preguntas rápidas claramente vinculadas al chat */}
+          <div className="bg-white/80 border border-slate-300/80 rounded-2xl p-3 space-y-2">
+            <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+              <CornerDownRight className="w-3.5 h-3.5 text-[#00875A]" />
+              <span>Preguntas rápidas (haz clic para enviar directamente al chat):</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {quickCitizenTopics.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => handleSendQuestion(item.q)}
+                  disabled={isStreaming}
+                  title={`Enviar al chat: "${item.q}"`}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 border border-slate-300 hover:border-[#00875A] text-xs font-medium text-[#003B71] shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <span>{item.label}</span>
+                  <Send className="w-3 h-3 text-[#00875A]/80" />
+                </button>
+              ))}
+            </div>
+          </div>
         </main>
       )}
 

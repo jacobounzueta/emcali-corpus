@@ -19,10 +19,7 @@ EMCALI_DOMAIN_PROTOTYPES: tuple[str, ...] = (
         "EMCALI acueducto agua potable alcantarillado tuberías fugas presión "
         "embalse PTAR Cañaveralejo m3"
     ),
-    (
-        "EMCALI telecomunicaciones telco fibra óptica internet Mbps planes "
-        "soporte técnico enredos"
-    ),
+    ("EMCALI telecomunicaciones telco fibra óptica internet Mbps planes soporte técnico enredos"),
     (
         "EMCALI atención ciudadanía PQRS petición queja reclamo sugerencia "
         "radicado contrato cédula factura PSE línea 177"
@@ -165,7 +162,9 @@ M3_OPS_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"[uú]ltimas?\s+noticias?|noticias?\s+de\s+emcali|"
         r"bolet[ií]n\s+diario|suscrib(?:ir|eme)\s+al\s+bolet[ií]n|"
         r"simular\s+(?:mi\s+)?factura|activar\s+(?:un\s+)?(?:punto\s+de\s+)?mantenimiento|"
-        r"despachar\s+brigada|asignar\s+brigada|resumen\s+ejecutivo|brigadas?\b)\b",
+        r"despachar\s+brigada|asignar\s+brigada|resumen\s+ejecutivo|brigadas?|"
+        r"\b(?:contrato|c[eé]dula)\s*(?::|#|\s)\s*\d{5,}|"
+        r"\b(?:queja|reclamo|petici[oó]n|sugerencia)\b.*\b(?:energ[ií]a|acueducto|alcantarillado|fibra|telco)\b)\b",
         re.IGNORECASE,
     ),
 )

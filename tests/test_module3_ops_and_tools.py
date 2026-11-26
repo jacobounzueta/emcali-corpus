@@ -237,3 +237,17 @@ def test_m3_fastapi_endpoints_rbac_and_map(isolated_ops_db: EmcaliOpsDatabase) -
                 descripcion="Corte de luz en barrio inexistente.",
             )
         )
+
+    # Auto-registro público crea siempre rol 'citizen' (nunca escala a manager)
+    reg = client.post(
+        "/api/auth/register",
+        json={
+            "username": "nuevo_ciudadano",
+            "display_name": "María López",
+            "password": "mi_clave_segura",
+            "phone_e164": "+573001112233",
+        },
+    )
+    assert reg.status_code == 200
+    assert reg.json()["role"] == "citizen"
+    assert reg.json()["token"]

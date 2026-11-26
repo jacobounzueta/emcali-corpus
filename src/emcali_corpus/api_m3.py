@@ -39,6 +39,13 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=2)
 
 
+class CitizenRegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=40)
+    display_name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=6, max_length=128)
+    phone_e164: str = Field(default="", max_length=20)
+
+
 class ToolExecuteRequest(BaseModel):
     tool_name: str = Field(min_length=2)
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -181,6 +188,38 @@ def auth_login(payload: LoginRequest) -> dict[str, Any]:
     session = db.authenticate_user(payload.username, payload.password)
     if not session:
         raise HTTPException(status_code=401, detail="Credenciales inválidas.")
+    return session
+
+
+@router.post("/auth/register")
+def auth_register(payload: CitizenRegisterRequest) -> dict[str, Any]:
+    """Auto-registro público: siempre crea rol 'citizen' (nunca escala privilegios a manager)."""
+    db = get_ops_db()
+    clean_user = payload.username.strip().lower()
+    existing = [u for u in db.list_users_rbac() if u["username"] == clean_user]
+    if existing:
+        raise HTTPException(status_code=409, detail="Ese nombre de usuario ya está registrado.")
+    phone = payload.phone_e164.strip()
+    if phone and not _E164_RE.match(phone):
+        raise HTTPException(
+            status_code=400,
+            detail="El teléfono debe estar en formato E.164 (ej. +573001234567).",
+        )
+    try:
+        db.upsert_user_rbac(
+            username=clean_user,
+            display_name=payload.display_name.strip(),
+            role="citizen",
+            password=payload.password,
+            phone_e164=phone,
+            department="Ciudadano Registrado",
+            active=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    session = db.authenticate_user(clean_user, payload.password)
+    if not session:
+        raise HTTPException(status_code=500, detail="No fue posible iniciar sesión tras registro.")
     return session
 
 
