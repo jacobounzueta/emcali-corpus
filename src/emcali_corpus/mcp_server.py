@@ -44,6 +44,22 @@ def listar_catalogo_20_herramientas() -> dict[str, Any]:
 
 
 @mcp.tool()
+def verificar_identidad_rbac_whatsapp(phone_e164: str) -> dict[str, Any]:
+    """Consulta en IAM/RBAC el usuario, departamento y rol (manager/citizen) de un número WhatsApp."""
+    db = get_ops_db()
+    normalized = db._normalize_phone_e164(phone_e164)
+    role = db.resolve_role_by_phone(normalized)
+    user = db.lookup_user_by_phone(normalized)
+    return {
+        "phone_e164": normalized or phone_e164,
+        "role": role,
+        "is_manager": role == "manager",
+        "rbac_user": user,
+        "manager_tools_enabled": role == "manager",
+    }
+
+
+@mcp.tool()
 def ejecutar_herramienta_emcali(
     tool_name: str,
     arguments: dict[str, Any] | None = None,

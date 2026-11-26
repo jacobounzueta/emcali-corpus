@@ -421,22 +421,54 @@ class EmcaliOpsDatabase:
             ).fetchone()
             return dict(row) if row else None
 
+    @staticmethod
+    def _normalize_phone_e164(phone_e164: str) -> str:
+        """Normaliza un número de WhatsApp/teléfono a formato E.164 compacto (+573...)."""
+        raw = phone_e164.strip()
+        if not raw:
+            return ""
+        if "@" in raw:
+            raw = raw.split("@", 1)[0]
+        digits = "".join(ch for ch in raw if ch.isdigit())
+        if not digits:
+            return ""
+        return f"+{digits}"
+
+    def lookup_user_by_phone(self, phone_e164: str) -> dict[str, Any] | None:
+        """Busca un usuario activo en users_rbac comparando teléfonos E.164 normalizados."""
+        target = self._normalize_phone_e164(phone_e164)
+        if not target:
+            return None
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT username, display_name, role, phone_e164, department, active, created_at
+                FROM users_rbac
+                WHERE active = 1
+                ORDER BY CASE WHEN role = 'manager' THEN 0 ELSE 1 END, username ASC
+                """
+            ).fetchall()
+        for row in rows:
+            if self._normalize_phone_e164(str(row["phone_e164"])) == target:
+                return {**dict(row), "active": True, "phone_e164": target}
+        return None
+
     def resolve_role_by_phone(self, phone_e164: str) -> UserRole:
         """Determina el rol RBAC a partir del número E.164 de WhatsApp (allowlist de gestión)."""
-        clean = phone_e164.strip()
+        clean = self._normalize_phone_e164(phone_e164)
         if not clean:
             return "citizen"
         allowlist_env = os.getenv("EMCALI_MANAGER_WHATSAPP_ALLOWLIST", "")
-        allowed_phones = {p.strip() for p in allowlist_env.split(",") if p.strip()}
+        allowed_phones = {
+            self._normalize_phone_e164(p)
+            for p in allowlist_env.split(",")
+            if self._normalize_phone_e164(p)
+        }
         if clean in allowed_phones:
             return "manager"
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT role FROM users_rbac WHERE phone_e164 = ? AND active = 1",
-                (clean,),
-            ).fetchone()
-            if row and row["role"] == "manager":
-                return "manager"
+        user = self.lookup_user_by_phone(clean)
+        if user and user["role"] == "manager":
+            return "manager"
         return "citizen"
 
     def list_users_rbac(self) -> list[dict[str, Any]]:
