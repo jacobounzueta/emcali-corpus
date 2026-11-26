@@ -19,7 +19,7 @@ Plataforma agéntica en producción para las **Empresas Municipales de Cali — 
 
 Integra de principio a fin los **3 módulos** del curso TAAML:
 - **Módulo 1 (Datos & Corpus Medallion):** Pipeline reproducible `Bronze → Silver → Gold` sobre el portal oficial de EMCALI (`1.386` chunks verificados) + ingesta en vivo del feed 2026 de noticias y mantenimientos.
-- **Módulo 2 (Agente LangGraph, Memoria y RAG Blindado):** Grafo `StateGraph` con **Qdrant HNSW + BM25 (RRF)** (`Recall@10 = 100.0%`, `nDCG@10 = 0.884`), memoria de corto plazo (`SqliteSaver`) y largo plazo (`PersistentSqliteStore`), **Router System One (`Jev`)** con compuerta semántica coseno y blindaje contra inyección indirecta (`<datos_pasivos_corpus>`).
+- **Módulo 2 (Agente LangGraph, Memoria y RAG Blindado):** Grafo `StateGraph` con **Qdrant HNSW (`intfloat/multilingual-e5-small` ONNX via FastEmbed, 384-d) + BM25 (RRF)** (`Recall@10 = 100.0%`, `nDCG@10 = 0.884`), memoria de corto plazo (`SqliteSaver`) y largo plazo (`PersistentSqliteStore`), **Router System One (`Jev`)** con compuerta semántica coseno y blindaje contra inyección indirecta (`<datos_pasivos_corpus>`).
 - **Módulo 3 (Operaciones Reales, 20 Tools, MCP, OpenClaw WhatsApp y Despliegue Azure):**
   - **Despliegue productivo en Microsoft Azure VPS** con Caddy Auto-HTTPS: **[https://172-183-55-204.sslip.io](https://172-183-55-204.sslip.io)**
   - **WhatsApp Business Real (eSIM dedicada `+57 323 892 3289`)** conectado a **OpenClaw Gateway** (`dmPolicy: "allowlist"` E.164 administrable en vivo desde IAM, auto-allowlist al registrarse y notificaciones proactivas de brigadas/PQRS/fallas).

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 import threading
 import uuid
@@ -43,8 +44,14 @@ from emcali_corpus.security import (
 
 QDRANT_STORAGE_DIR = config.DATA_DIR / "qdrant"
 COLLECTION_NAME = "emcali_chunks_m2"
+NEURAL_COLLECTION_NAME = "emcali_chunks_e5_small"
+FASTEMBED_MODEL_NAME = "intfloat/multilingual-e5-small"
 EMBEDDING_DIM = 384
 TOKEN_RE = re.compile(r"[a-z0-9áéíóúñü]{2,}", re.IGNORECASE)
+
+_FASTEMBED_MODEL: Any = None
+_FASTEMBED_LOCK = threading.Lock()
+_FASTEMBED_FAILED = False
 
 SPANISH_STOPWORDS = frozenset(
     {
@@ -110,8 +117,44 @@ def tokenize_for_search(text: str) -> list[str]:
     return [tok for tok in TOKEN_RE.findall(norm) if tok not in SPANISH_STOPWORDS]
 
 
-def compute_dense_embedding(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
-    """Genera un vector denso unitario L2 (384-d) mediante subword n-grams y bigramas semánticos."""
+def resolve_embedding_backend() -> Literal["fastembed", "hash"]:
+    """Determina el motor de embeddings: FastEmbed E5-small (prod) o hashing determinista (CI)."""
+    global _FASTEMBED_FAILED
+    forced = os.getenv("EMCALI_EMBEDDING_BACKEND", "").strip().lower()
+    if forced == "hash":
+        return "hash"
+    if forced == "fastembed":
+        return "hash" if _FASTEMBED_FAILED else "fastembed"
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return "hash"
+    return "hash" if _FASTEMBED_FAILED else "fastembed"
+
+
+def _get_fastembed_model() -> Any | None:
+    """Carga de forma perezosa y thread-safe intfloat/multilingual-e5-small en ONNX (CPU)."""
+    global _FASTEMBED_MODEL, _FASTEMBED_FAILED
+    if resolve_embedding_backend() != "fastembed":
+        return None
+    if _FASTEMBED_MODEL is not None:
+        return _FASTEMBED_MODEL
+    with _FASTEMBED_LOCK:
+        if _FASTEMBED_MODEL is not None:
+            return _FASTEMBED_MODEL
+        if _FASTEMBED_FAILED:
+            return None
+        try:
+            from fastembed import TextEmbedding
+
+            model_name = os.getenv("EMCALI_EMBEDDING_MODEL", FASTEMBED_MODEL_NAME).strip()
+            _FASTEMBED_MODEL = TextEmbedding(model_name=model_name or FASTEMBED_MODEL_NAME)
+            return _FASTEMBED_MODEL
+        except Exception:
+            _FASTEMBED_FAILED = True
+            return None
+
+
+def compute_hash_embedding(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
+    """Vector denso determinista L2 (384-d) por subword n-grams (rápido para Router y fallback)."""
     tokens = tokenize_for_search(text)
     if not tokens:
         tokens = ["emcali"]
@@ -144,6 +187,33 @@ def compute_dense_embedding(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
         return vec
     inv_norm = 1.0 / math.sqrt(norm_sq)
     return [round(v * inv_norm, 6) for v in vec]
+
+
+def compute_dense_embeddings_batch(
+    texts: Sequence[str],
+    *,
+    is_query: bool = False,
+    dim: int = EMBEDDING_DIM,
+) -> list[list[float]]:
+    """Genera embeddings densos 384-d en lote usando FastEmbed E5-small (ONNX) con fallback hash."""
+    if not texts:
+        return []
+    encoder = _get_fastembed_model() if dim == EMBEDDING_DIM else None
+    if encoder is not None:
+        prefix = "query: " if is_query else "passage: "
+        prefixed = [f"{prefix}{t.strip() or 'emcali'}" for t in texts]
+        return [vec.tolist() for vec in encoder.embed(prefixed, batch_size=64)]
+    return [compute_hash_embedding(t, dim=dim) for t in texts]
+
+
+def compute_dense_embedding(
+    text: str,
+    dim: int = EMBEDDING_DIM,
+    *,
+    is_query: bool = False,
+) -> list[float]:
+    """Genera un vector denso unitario L2 (384-d) con intfloat/multilingual-e5-small o fallback."""
+    return compute_dense_embeddings_batch([text], is_query=is_query, dim=dim)[0]
 
 
 def load_chunks_from_disk(
@@ -253,11 +323,15 @@ class EmcaliQdrantVectorStore:
         self,
         *,
         storage_path: Path | str | None = QDRANT_STORAGE_DIR,
-        collection_name: str = COLLECTION_NAME,
+        collection_name: str | None = None,
         in_memory: bool = False,
         chunks: Sequence[KnowledgeChunk] | None = None,
     ) -> None:
-        self.collection_name = collection_name
+        self.embedding_backend = resolve_embedding_backend()
+        default_col = (
+            NEURAL_COLLECTION_NAME if self.embedding_backend == "fastembed" else COLLECTION_NAME
+        )
+        self.collection_name = collection_name or default_col
         self.in_memory = in_memory
         if in_memory or storage_path is None:
             self.client = QdrantClient(location=":memory:")
@@ -318,10 +392,11 @@ class EmcaliQdrantVectorStore:
             ),
         )
 
+        enriched_texts = [f"{c.title}\n{c.heading_path}\n{c.text}" for c in self.chunks]
+        vectors = compute_dense_embeddings_batch(enriched_texts, is_query=False)
+
         points: list[PointStruct] = []
-        for chunk in self.chunks:
-            enriched_text = f"{chunk.title}\n{chunk.heading_path}\n{chunk.text}"
-            vector = compute_dense_embedding(enriched_text)
+        for chunk, vector in zip(self.chunks, vectors, strict=True):
             point_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"emcali:{chunk.chunk_id}"))
             is_canary = chunk.chunk_id == CANARY_INJECTION_CHUNK.chunk_id
             points.append(
@@ -353,11 +428,18 @@ class EmcaliQdrantVectorStore:
     def collection_info_summary(self) -> dict[str, Any]:
         """Devuelve métricas verificables de la colección Qdrant e índice HNSW."""
         count_res = self.client.count(collection_name=self.collection_name, exact=True)
+        model_label = (
+            f"{os.getenv('EMCALI_EMBEDDING_MODEL', FASTEMBED_MODEL_NAME)} (ONNX FastEmbed)"
+            if self.embedding_backend == "fastembed"
+            else "blake2b-subword-384 (determinista)"
+        )
         return {
             "collection_name": self.collection_name,
             "storage_location": self.storage_location,
             "indexed_points": count_res.count,
             "vector_dimension": EMBEDDING_DIM,
+            "embedding_backend": self.embedding_backend,
+            "embedding_model": model_label,
             "distance_metric": "Cosine",
             "ann_index_type": "HNSW (m=16, ef_construct=128, ef_search=64)",
             "hybrid_fusion": "Reciprocal Rank Fusion (Dense HNSW + Lexical BM25)",
@@ -438,7 +520,7 @@ class EmcaliQdrantVectorStore:
             must_conditions.append(FieldCondition(key="is_canary", match=MatchValue(value=False)))
 
         qdrant_filter = Filter(must=must_conditions) if must_conditions else None
-        q_vector = compute_dense_embedding(query)
+        q_vector = compute_dense_embedding(query, is_query=True)
 
         candidate_limit = max(top_k * 4, 25)
         dense_points = self.client.query_points(

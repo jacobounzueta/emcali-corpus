@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from emcali_corpus.vector_store import compute_dense_embedding
+from emcali_corpus.vector_store import compute_hash_embedding
 
 EMCALI_DOMAIN_PROTOTYPES: tuple[str, ...] = (
     (
@@ -35,7 +35,7 @@ EMCALI_DOMAIN_PROTOTYPES: tuple[str, ...] = (
 )
 
 _PROTOTYPE_VECTORS: tuple[list[float], ...] = tuple(
-    compute_dense_embedding(proto) for proto in EMCALI_DOMAIN_PROTOTYPES
+    compute_hash_embedding(proto) for proto in EMCALI_DOMAIN_PROTOTYPES
 )
 
 
@@ -44,7 +44,7 @@ def compute_domain_relevance_score(question: str) -> float:
     q = question.strip()
     if not q:
         return 0.0
-    q_vec = compute_dense_embedding(q)
+    q_vec = compute_hash_embedding(q)
     best = 0.0
     for p_vec in _PROTOTYPE_VECTORS:
         dot = sum(a * b for a, b in zip(q_vec, p_vec, strict=True))
