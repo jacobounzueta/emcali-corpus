@@ -7,9 +7,10 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import requests
+from pydantic import BaseModel, Field
 
 from emcali_corpus import config
 from emcali_corpus.cali_geo import detect_barrios_in_text
@@ -25,30 +26,91 @@ LIVE_EMCALI_NEWS_JSON_URL = os.getenv(
     "EMCALI_LIVE_NEWS_URL", "https://portalemcali.onrender.com/data/news.json"
 )
 
-MAINTENANCE_KEYWORDS: tuple[str, ...] = (
-    "mantenimiento",
-    "reparacion",
-    "reparación",
-    "reparaciones",
-    "suspension",
-    "suspensión",
-    "corte",
-    "cortes",
-    "tuberia",
-    "tubería",
-    "acueducto",
-    "transformador",
-    "circuito",
-    "subestacion",
-    "subestación",
-    "fuga",
-    "daño",
-    "dano",
-    "fibra",
-    "alcantarillado",
-    "camaras de telecomunicaciones",
-    "cámaras de telecomunicaciones",
+# ---------------------------------------------------------------------------
+# Jev News-to-Map Ingestion Gatekeeper (Choice, Noul, Score, Box)
+# ---------------------------------------------------------------------------
+
+JevNewsChoice = Literal["operational_maintenance_pin", "institutional_news"]
+
+OPERATIONAL_TITLE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\breparaci[oó]n(?:es)?\s+y\s+mantenimientos?\b", re.IGNORECASE),
+    re.compile(
+        r"\bmodernizaci[oó]n\s+de\s+(?:energ[ií]a|acueducto|alcantarillado|redes?|circuitos?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:suspensi[oó]n|corte|cortes|interrupci[oó]n)\s+(?:del\s+servicio|temporal|programad[oa]|de\s+(?:agua|energ[ií]a|luz))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bmantenimiento\s+(?:preventivo|correctivo|programado|en\s+redes?|de\s+(?:energ[ií]a|acueducto))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:reparaci[oó]n\s+de\s+fuga|da[nñ]o\s+en\s+(?:la\s+)?red|cambio\s+de\s+transformador|poda\s+t[eé]cnica)\b",
+        re.IGNORECASE,
+    ),
 )
+
+OPERATIONAL_BODY_KEYWORDS: tuple[str, ...] = (
+    "suspensión del servicio",
+    "suspension del servicio",
+    "suspensión temporal",
+    "suspension temporal",
+    "corte programado",
+    "cortes de energía",
+    "cortes de energia",
+    "cortes de agua",
+    "interrupción del servicio",
+    "interrupcion del servicio",
+    "mantenimiento preventivo",
+    "mantenimiento correctivo",
+    "reparación de fuga",
+    "reparacion de fuga",
+    "reparaciones y mantenimientos",
+    "cambio de transformador",
+    "cambio de poste",
+    "poda técnica",
+    "poda tecnica",
+    "lavado de tubería",
+    "lavado de tuberia",
+    "empalme de fibra",
+    "sin servicio de",
+)
+
+# Compuerta NOUL: veta comunicados positivos, institucionales o de operación normal
+# para que NUNCA contaminen el mapa de afectaciones/mantenimientos.
+JEV_NOUL_INSTITUTIONAL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(?:funciona|opera|operando|funcionando)\s+con\s+normalidad\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bsin\s+afectaci[oó]n(?:es)?\b|\boperaci[oó]n\s+normal\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:jornada\s+especial|acuerdos?\s+de\s+pago|normalizaci[oó]n\s+de\s+cartera|"
+        r"alivios?\s+y\s+acuerdos?|facilidades\s+de\s+pago)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:convenio\s+interinstitucional|alianza\s+estrat[eé]gica|rendici[oó]n\s+de\s+cuentas|"
+        r"obsolescencia\s+tecnol[oó]gica|retiro\s+de\s+\d+\s+veh[ií]culos|"
+        r"conexiones\s+irregulares|desmontado\s+[\d.,]+\s+conexiones|"
+        r"premio|reconocimiento|capacitaci[oó]n|feria\s+de\s+servicios)\b",
+        re.IGNORECASE,
+    ),
+)
+
+
+class JevNewsClassification(BaseModel):
+    """Decisión estructurada System One (Jev) para decidir si una noticia genera pin en el mapa."""
+
+    choice: JevNewsChoice
+    noul_triggered: bool = False
+    score: float = Field(ge=0.0, le=1.0)
+    service: ServiceType
+    operational_signals: list[str] = Field(default_factory=list)
+    veto_signals: list[str] = Field(default_factory=list)
+    rationale: str
 
 
 def _infer_service(text: str) -> ServiceType:
@@ -64,9 +126,77 @@ def _infer_service(text: str) -> ServiceType:
     return "energia"
 
 
+def classify_news_event_with_jev(title: str, body: str) -> JevNewsClassification:
+    """Evalúa con Jev (Choice, Noul, Score, Box) si una noticia es afectación operativa real."""
+    clean_title = title.strip()
+    body_head = body[:600].strip()
+    combined = f"{clean_title} {body_head}"
+    service = _infer_service(combined)
+
+    # 1. Compuerta NOUL: vetar noticias positivas/institucionales que no implican corte ni obra
+    veto_hits: list[str] = []
+    for pat in JEV_NOUL_INSTITUTIONAL_PATTERNS:
+        m = pat.search(combined)
+        if m:
+            veto_hits.append(m.group(0))
+
+    if veto_hits:
+        return JevNewsClassification(
+            choice="institutional_news",
+            noul_triggered=True,
+            score=0.05,
+            service=service,
+            veto_signals=veto_hits,
+            rationale=(
+                f"Jev Noul activado: comunicado institucional/positivo ({', '.join(veto_hits)}); "
+                "se clasifica como noticia general y NO se marca como afectación en el mapa."
+            ),
+        )
+
+    # 2. Señales operativas de mantenimiento/afectación (título 0.60, cuerpo 0.20 c/u)
+    op_signals: list[str] = []
+    score = 0.0
+    for pat in OPERATIONAL_TITLE_PATTERNS:
+        m = pat.search(clean_title)
+        if m:
+            op_signals.append(f"title:{m.group(0)}")
+            score += 0.60
+
+    low_body = body_head.lower()
+    for kw in OPERATIONAL_BODY_KEYWORDS:
+        if kw in low_body:
+            op_signals.append(f"body:{kw}")
+            score += 0.25
+
+    bounded_score = round(min(1.0, score), 2)
+    if bounded_score >= 0.55:
+        return JevNewsClassification(
+            choice="operational_maintenance_pin",
+            noul_triggered=False,
+            score=bounded_score,
+            service=service,
+            operational_signals=op_signals[:6],
+            rationale=(
+                f"Jev Choice=operational_maintenance_pin (score={bounded_score}): "
+                "se detectó intervención/afectación operativa verificable para georreferenciar."
+            ),
+        )
+
+    return JevNewsClassification(
+        choice="institutional_news",
+        noul_triggered=False,
+        score=bounded_score,
+        service=service,
+        operational_signals=op_signals[:4],
+        rationale=(
+            f"Jev Choice=institutional_news (score={bounded_score} < 0.55): "
+            "noticia informativa sin evidencia de corte o mantenimiento activo."
+        ),
+    )
+
+
 def _is_maintenance_news(title: str, body: str) -> bool:
-    combined = f"{title} {body[:400]}".lower()
-    return any(kw in combined for kw in MAINTENANCE_KEYWORDS)
+    return classify_news_event_with_jev(title, body).choice == "operational_maintenance_pin"
 
 
 _ISO_DATE_RE = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")

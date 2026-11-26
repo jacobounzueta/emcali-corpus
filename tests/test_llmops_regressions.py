@@ -87,3 +87,31 @@ def test_assistant_settings_reads_deepseek_model_from_env(monkeypatch: pytest.Mo
     monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
     settings = load_assistant_settings()
     assert settings.model == "deepseek-v4-flash"
+
+
+def test_jev_news_gatekeeper_blocks_positive_press_releases_from_map() -> None:
+    """Verifica que Jev Noul vete noticias positivas y solo permita mantenimientos reales."""
+    from emcali_corpus.news_sync import classify_news_event_with_jev
+
+    good_news = classify_news_event_with_jev(
+        "AUNQUE EL VERANO ES FUERTE, EL SISTEMA DE ACUEDUCTO FUNCIONA CON NORMALIDAD",
+        "A pesar de la fuerte temporada de calor que afronta la ciudad, el acueducto opera bien.",
+    )
+    assert good_news.choice == "institutional_news"
+    assert good_news.noul_triggered is True
+
+    cartera = classify_news_event_with_jev(
+        "Este viernes 27 de noviembre EMCALI realiza jornada especial de alivios "
+        "y acuerdos de pago",
+        "Acércate a nuestros puntos de atención para normalizar tu factura.",
+    )
+    assert cartera.choice == "institutional_news"
+    assert cartera.noul_triggered is True
+
+    real_maint = classify_news_event_with_jev(
+        "Reparaciones y mantenimientos — Jueves 26 de noviembre de 2026",
+        "EMCALI realizará suspensión temporal del servicio de acueducto en San Fernando.",
+    )
+    assert real_maint.choice == "operational_maintenance_pin"
+    assert real_maint.noul_triggered is False
+    assert real_maint.score >= 0.55
