@@ -221,23 +221,52 @@ def parse_voice_hotword_command(
     )
 
 
-def build_tts_speech_summary(markdown_answer: str, *, max_chars: int = 460) -> str:
-    """Convierte una respuesta Markdown con citas en texto fluido sin emojis para voz (TTS)."""
+TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$", re.MULTILINE)
+HR_LINE_RE = re.compile(r"^\s*[-*_]{3,}\s*$", re.MULTILINE)
+CODE_FENCE_RE = re.compile(r"```[\s\S]*?```")
+RAW_URL_RE = re.compile(r"https?://\S+")
+BULLET_PREFIX_RE = re.compile(r"^\s*(?:[-*•]+|\d+[.)])\s+", re.MULTILINE)
+DASH_RE = re.compile(r"[\u2014\u2013]+|\s-\s|--+")
+
+
+def build_tts_speech_summary(markdown_answer: str, *, max_chars: int = 260) -> str:
+    """Convierte Markdown en resumen hablado natural (2-3 frases) sin tablas, guiones ni URLs."""
     without_sources = markdown_answer.split("### 🔗 Fuentes Oficiales")[0]
-    without_links = MARKDOWN_LINK_RE.sub(r"\1", without_sources)
-    without_emojis = EMOJI_RE.sub(" ", without_links)
-    clean = MARKDOWN_FORMATTING_RE.sub(" ", without_emojis)
-    clean = re.sub(r"\s+", " ", clean).strip()
+    had_table = bool(TABLE_ROW_RE.search(without_sources))
+    text = CODE_FENCE_RE.sub(" ", without_sources)
+    text = TABLE_ROW_RE.sub(" ", text)
+    text = HR_LINE_RE.sub(" ", text)
+    text = MARKDOWN_LINK_RE.sub(r"\1", text)
+    text = RAW_URL_RE.sub(" ", text)
+    text = BULLET_PREFIX_RE.sub("", text)
+    text = EMOJI_RE.sub(" ", text)
+    text = MARKDOWN_FORMATTING_RE.sub(" ", text)
+    text = DASH_RE.sub(", ", text)
+    clean = re.sub(r"\s*,\s*,\s*", ", ", text)
+    clean = re.sub(r"\s+", " ", clean).strip(" ,;-")
+
+    if not clean and had_table:
+        return "Listo vecino, te dejé el detalle completo en la tabla del chat."
+
     if len(clean) <= max_chars:
+        if had_table and len(clean) + 52 <= max_chars + 40:
+            return f"{clean.rstrip('.')} . Te dejé el detalle en la tabla del chat.".replace(
+                " .", "."
+            )
         return clean
-    cutoff = clean[:max_chars].rsplit(".", 1)[0]
-    return (cutoff + ".") if len(cutoff) > 80 else (clean[:max_chars].rstrip() + "...")
+
+    # Cortar limpiamente al final de la última oración completa dentro de max_chars
+    window = clean[:max_chars]
+    best_end = max(window.rfind("."), window.rfind("!"), window.rfind("?"))
+    if best_end >= 60:
+        return window[: best_end + 1].strip()
+    return window.rsplit(" ", 1)[0].rstrip(" ,;:") + "."
 
 
 async def _synthesize_edge_tts_bytes(text: str, voice: str) -> bytes:
     import edge_tts
 
-    communicate = edge_tts.Communicate(text=text, voice=voice, rate="+2%")
+    communicate = edge_tts.Communicate(text=text, voice=voice, rate="+5%")
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk.get("type") == "audio":
@@ -247,7 +276,23 @@ async def _synthesize_edge_tts_bytes(text: str, voice: str) -> bytes:
     return b"".join(chunks)
 
 
-def synthesize_neural_tts(text: str, *, max_chars: int = 550) -> tuple[bytes, str, str]:
+async def stream_edge_tts_chunks(text: str, *, max_chars: int = 260):
+    """Generador asíncrono que emite frames MP3 conforme llegan de Edge Neural TTS."""
+    import edge_tts
+
+    clean = build_tts_speech_summary(text, max_chars=max_chars)
+    if not clean:
+        return
+    edge_voice = os.getenv("EMCALI_TTS_VOICE", DEFAULT_EDGE_VOICE).strip() or DEFAULT_EDGE_VOICE
+    communicate = edge_tts.Communicate(text=clean, voice=edge_voice, rate="+5%")
+    async for chunk in communicate.stream():
+        if chunk.get("type") == "audio":
+            data = chunk.get("data")
+            if isinstance(data, bytes):
+                yield data
+
+
+def synthesize_neural_tts(text: str, *, max_chars: int = 260) -> tuple[bytes, str, str]:
     """Sintetiza voz neural colombiana para Melva (ElevenLabs o Edge es-CO-SalomeNeural)."""
     clean = build_tts_speech_summary(text, max_chars=max_chars)
     if not clean:

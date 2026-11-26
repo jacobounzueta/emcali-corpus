@@ -35,6 +35,7 @@ from emcali_corpus.voice import (
     build_tts_speech_summary,
     describe_voice_capabilities,
     parse_voice_hotword_command,
+    stream_edge_tts_chunks,
     synthesize_neural_tts,
 )
 
@@ -362,6 +363,21 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 yield f"event: {ev_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(_event_generator(), media_type="text/event-stream")
+
+    @app.get("/api/voice/tts/stream")
+    async def stream_voice_tts(text: str = Query(min_length=1, max_length=2500)) -> Response:
+        if os.getenv("ELEVENLABS_API_KEY", "").strip():
+            audio_bytes, media_type, provider = synthesize_neural_tts(text, max_chars=260)
+            return Response(
+                content=audio_bytes,
+                media_type=media_type,
+                headers={"X-TTS-Provider": provider, "Cache-Control": "no-store"},
+            )
+        return StreamingResponse(
+            stream_edge_tts_chunks(text, max_chars=260),
+            media_type="audio/mpeg",
+            headers={"X-TTS-Provider": "edge-tts:stream", "Cache-Control": "no-store"},
+        )
 
     @app.post("/api/voice/tts")
     def synthesize_voice_tts(payload: VoiceTtsRequest) -> Response:

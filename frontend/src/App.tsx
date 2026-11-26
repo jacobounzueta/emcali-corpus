@@ -630,38 +630,22 @@ export default function App() {
     }
 
     setLiveActivity("speaking");
-    fetch(`${API_BASE}/api/voice/tts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: spokenCleanText }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
-        return res.blob();
-      })
-      .then((blob) => {
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio;
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          if (currentAudioRef.current === audio) currentAudioRef.current = null;
-          resumeMicAfterSpeakerOutput(700);
-          if (onEndCallback) onEndCallback();
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl);
-          if (currentAudioRef.current === audio) currentAudioRef.current = null;
-          speakWithBrowserFallback(spokenCleanText, onEndCallback);
-        };
-        audio.play().catch(() => {
-          URL.revokeObjectURL(audioUrl);
-          speakWithBrowserFallback(spokenCleanText, onEndCallback);
-        });
-      })
-      .catch(() => {
-        speakWithBrowserFallback(spokenCleanText, onEndCallback);
-      });
+    const streamUrl = `${API_BASE}/api/voice/tts/stream?text=${encodeURIComponent(spokenCleanText)}`;
+    const audio = new Audio(streamUrl);
+    currentAudioRef.current = audio;
+    audio.onended = () => {
+      if (currentAudioRef.current === audio) currentAudioRef.current = null;
+      resumeMicAfterSpeakerOutput(450);
+      if (onEndCallback) onEndCallback();
+    };
+    audio.onerror = () => {
+      if (currentAudioRef.current === audio) currentAudioRef.current = null;
+      speakWithBrowserFallback(spokenCleanText, onEndCallback);
+    };
+    audio.play().catch(() => {
+      if (currentAudioRef.current === audio) currentAudioRef.current = null;
+      speakWithBrowserFallback(spokenCleanText, onEndCallback);
+    });
   };
 
   const interruptSpeechBargeIn = () => {
@@ -1331,6 +1315,31 @@ export default function App() {
           <div className="h-1.5 w-full rounded-full bg-[#DCECC9]" />
         </div>
       </header>
+
+      {/* Banner directo de WhatsApp con Doña Melva */}
+      <div className="bg-gradient-to-r from-[#2D5211] via-[#477D1C] to-[#579624] text-white">
+        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/melva-avatar.jpg"
+              alt="Doña Melva en WhatsApp"
+              className="w-6 h-6 rounded-full object-cover border border-white/80 shrink-0"
+            />
+            <span className="font-semibold">
+              💬 <b>¿Prefieres escribirme desde tu celular?</b> Consulta tarifas, mantenimientos, PQRS y fallas directo con <b>Doña Melva</b>.
+            </span>
+          </div>
+          <a
+            href="https://wa.me/573238923289?text=Hola%20Do%C3%B1a%20Melva"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FACC15] hover:bg-[#eab308] text-[#141B12] font-extrabold text-[11px] transition shadow-xs shrink-0"
+          >
+            <span>Hablemos por WhatsApp</span>
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </div>
 
       {errorBanner && (
         <div className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-xs text-rose-800 flex items-center justify-between">
