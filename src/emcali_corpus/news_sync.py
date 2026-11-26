@@ -202,8 +202,13 @@ def sync_live_emcali_news(
         barrio_names = [loc.barrio for loc in locations]
 
         today_iso = utc_now_iso()[:10]
+        stable_key = (
+            hashlib.sha1(f"{slug_id}|{date_str or today_iso}|{title}".encode())
+            .hexdigest()[:16]
+            .upper()
+        )
         db.upsert_news_item(
-            noticia_id=f"LIVE-{slug_id[:24].upper()}",
+            noticia_id=f"LIVE-{stable_key}",
             titulo=title,
             categoria="Reparaciones y Mantenimientos" if is_maint else cat_raw,
             fecha_publicacion=date_str or today_iso,
