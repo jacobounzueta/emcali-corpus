@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import urllib.request
 from typing import Any, Literal
 
 from langchain_core.tools import BaseTool, tool
@@ -449,18 +452,45 @@ def buscar_corpus_institucional_qdrant(
     search_mode: Literal["hybrid", "dense", "lexical"] = "hybrid",
 ) -> dict[str, Any]:
     """Recupera fragmentos verificados del corpus EMCALI en Qdrant con búsqueda híbrida y citas."""
-    store = get_vector_store()
-    hits = store.search(
-        query,
-        top_k=top_k,
-        section_filter=section_filter,
-        search_mode=search_mode,
-    )
-    return {
-        "query": query,
-        "hits_count": len(hits),
-        "citations": [h.to_citation_dict() for h in hits],
-    }
+    try:
+        store = get_vector_store()
+        hits = store.search(
+            query,
+            top_k=top_k,
+            section_filter=section_filter,
+            search_mode=search_mode,
+        )
+        return {
+            "query": query,
+            "hits_count": len(hits),
+            "citations": [h.to_citation_dict() for h in hits],
+        }
+    except RuntimeError as exc:
+        if "already accessed by another instance" not in str(exc):
+            raise
+        api_url = os.getenv("EMCALI_LOCAL_API_URL", "http://127.0.0.1:8000").rstrip("/")
+        payload = json.dumps(
+            {
+                "tool_name": "buscar_corpus_institucional_qdrant",
+                "arguments": {
+                    "query": query,
+                    "section_filter": section_filter,
+                    "top_k": top_k,
+                    "search_mode": search_mode,
+                },
+            }
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            f"{api_url}/api/tools/execute",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("result"), dict):
+            return data["result"]
+        return data
 
 
 @tool("consultar_canales_y_puntos_atencion", args_schema=CanalesAtencionInput)

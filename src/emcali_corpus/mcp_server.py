@@ -96,7 +96,21 @@ def generar_boletin_diario_emcali(
 def _register_all_20_tools() -> None:
     for lc_tool in ALL_20_TOOLS:
         tool_name = lc_tool.name
-        tool_desc = (lc_tool.description or f"Herramienta EMCALI {tool_name}").strip()
+        base_desc = (lc_tool.description or f"Herramienta EMCALI {tool_name}").strip()
+        args_schema = lc_tool.args_schema
+        schema_fn = getattr(args_schema, "model_json_schema", None)
+        schema = (
+            schema_fn()
+            if callable(schema_fn)
+            else (args_schema if isinstance(args_schema, dict) else {})
+        )
+        props = schema.get("properties", {})
+        req_fields = set(schema.get("required", []))
+        if props:
+            arg_hints = ", ".join(f"{k}{'*' if k in req_fields else ''}" for k in props)
+            tool_desc = f"{base_desc} | arguments keys: {arg_hints}"
+        else:
+            tool_desc = base_desc
 
         def _make_handler(name: str) -> Any:
             def _handler(
