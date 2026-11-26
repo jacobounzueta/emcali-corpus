@@ -10,24 +10,24 @@
 
 ### `0:00 – 1:15` — The Problem & Value Proposition
 - **Hook:** *"EMCALI serves over 790,000 households across Cali and four neighboring municipalities — yet today, citizens face a fragmented website with static PDFs, disconnected news, and no unified way to check neighborhood outages, estimate bills, or file PQRS directly from WhatsApp."*
-- **Our Solution — Mile (Production Agentic Platform):** *"We built **Mile**, a production-grade, dual-role AI platform integrating **all three modules** of this course — a reproducible web corpus, hybrid Qdrant RAG with layered memory, **20 typed Pydantic tools**, a live **Cali Operations Map**, and **OpenClaw + WhatsApp** deployed on Microsoft Azure."*
+- **Our Solution — Melva (Production Agentic Platform):** *"We built **Melva**, a production-grade, dual-role AI platform integrating **all three modules** of this course — a reproducible web corpus, hybrid Qdrant RAG with layered memory, **20 typed Pydantic tools**, a live **Cali Operations Map**, and **OpenClaw + WhatsApp** deployed on Microsoft Azure."*
 
 ### `1:15 – 4:30` — Live Fire Test on an EMCALI Guest's Phone (WhatsApp)
-1. **Live Guest Onboarding (3 seconds):** Add an EMCALI guest's phone number via **IAM → Allowlist WhatsApp** (or have them register on the web portal, which auto-allowlists them and sends Mile's welcome WhatsApp message).
-2. **Guest Query 1 (Tariffs + News/Outages + Voice):** Invite the guest to text Mile (`+57 323 892 3289`) on WhatsApp:
+1. **Live Guest Onboarding (3 seconds):** Add an EMCALI guest's phone number via **IAM → Allowlist WhatsApp** (or have them register on the web portal, which auto-allowlists them and sends Melva's welcome WhatsApp message).
+2. **Guest Query 1 (Tariffs + News/Outages + Voice):** Invite the guest to text Melva (`+57 323 892 3289`) on WhatsApp:
    - *"¿Cuánto cuesta el kWh de energía en estrato 3 y hay mantenimientos activos en San Fernando?"*
-   - Show Mile responding live with exact deterministic CSV numbers + live scraped maintenance info (zero hallucinations — even refusing to guess if a quarter/barrio doesn't exist, e.g. *"Manhattan"* or missing Q1 water data). Optionally trigger an on-demand Colombian neural voice note (`es-CO-SalomeNeural` / ElevenLabs-ready).
+   - Show Melva responding live with exact deterministic CSV numbers + live scraped maintenance info (zero hallucinations — even refusing to guess if a quarter/barrio doesn't exist, e.g. *"Manhattan"* or missing Q1 water data). Optionally trigger an on-demand Colombian neural voice note (`es-CO-SalomeNeural` / ElevenLabs-ready).
 3. **Guest Query 2 (PQRS / Failure Report without being a client):**
    - Guest reports a water failure in *Ciudad Jardín* using their **cédula** (non-client flow) or **contract #** (client flow).
-   - Switch screen to `https://172-183-55-204.sslip.io`: the **EMCALI 2026 Map-first landing** immediately flags the citizen failure report on the **Cali Leaflet Map**, while **Mile** sits cleanly in the bottom-right green dock (just like EMCALI's real 2026 portal)!
+   - Switch screen to `https://172-183-55-204.sslip.io`: the **EMCALI 2026 Map-first landing** immediately flags the citizen failure report on the **Cali Leaflet Map**, while **Melva** sits cleanly in the bottom-right green dock (just like EMCALI's real 2026 portal)!
 4. **RBAC Security Proof (`tools.deny`):**
-   - Guest tries to run a management action (e.g., *"Activa un mantenimiento en Granada"*) → Mile blocks it via **RBAC (`tools.deny`)** based on E.164 phone identity.
+   - Guest tries to run a management action (e.g., *"Activa un mantenimiento en Granada"*) → Melva blocks it via **RBAC (`tools.deny`)** based on E.164 phone identity.
 
 ### `4:30 – 7:00` — Management Mode & Closed Operational Loop (Commercial Close)
 - Log in to **EMCALI Management Mode** (`Mi cuenta ↗` → `rommel` / PBKDF2-SHA256 Bearer session; zero prefilled credentials).
 - Show the **Failure Hotspots** panel (with `(i)` explainer) flagging accumulated citizen reports by `(barrio, service)` for repair team assignment.
 - Click **Despachar Brigada** (idempotent — switches to **`🚑 Brigada en sitio`** + **`✅ Marcar Resuelto`**) or reply directly to a ticket in **PQRS / Failure Reports** → the pin turns into an official active maintenance on the Cali map and triggers a **proactive WhatsApp alert** directly to the citizen's phone!
-- Guest asks Mile on WhatsApp *"¿Hay novedades en Ciudad Jardín?"* → Mile immediately reports the dispatched repair crew and offers subscription to the **OpenClaw Daily Newsletter**.
+- Guest asks Melva on WhatsApp *"¿Hay novedades en Ciudad Jardín?"* → Melva immediately reports the dispatched repair crew and offers subscription to the **OpenClaw Daily Newsletter**.
 - **Commercial Close:** *"From citizen WhatsApp complaint → geospatial hotspot → crew dispatch → proactive WhatsApp reply, all auditable and running live on Azure."*
 
 ---

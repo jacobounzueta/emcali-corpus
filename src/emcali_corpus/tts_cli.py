@@ -13,7 +13,7 @@ from emcali_corpus.voice import synthesize_neural_tts
 
 def main() -> None:
     load_dotenv()
-    parser = argparse.ArgumentParser(description="EMCALI Mile Neural TTS CLI (ElevenLabs / Edge)")
+    parser = argparse.ArgumentParser(description="EMCALI Melva Neural TTS CLI (ElevenLabs / Edge)")
     parser.add_argument("--text", default="", help="Texto a sintetizar (si vacío, lee stdin).")
     parser.add_argument("--output", default="", help="Ruta de archivo MP3 de salida.")
     args = parser.parse_args()

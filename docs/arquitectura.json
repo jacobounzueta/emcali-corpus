@@ -1,7 +1,7 @@
 {
   "schema": "archify/v1",
   "project": "emcali-corpus",
-  "title": "EMCALI ¡Siempre Juntos! — Mile Asistente Virtual (M1 · M2 · M3)",
+  "title": "EMCALI ¡Siempre Juntos! — Melva Asistente Virtual (M1 · M2 · M3)",
   "version": "0.3.0",
   "updated_at": "2026-11-26",
   "production_url": "https://172-183-55-204.sslip.io",
@@ -33,8 +33,8 @@
       "layer": "channels",
       "title": "Portal Web React 19 (EMCALI 2026)",
       "subtitle": "frontend/src/App.tsx · M3OperationsSuite.tsx",
-      "summary": "Mapa operativo de Cali como portada, barra lateral unificada (General, Gestión EMCALI, Académico TAAML), PQRS dedicado y drawer flotante de Mile con voz neural.",
-      "tags": ["React 19", "Tailwind", "Leaflet", "SSE", "Mile Live TTS"]
+      "summary": "Mapa operativo de Cali como portada, barra lateral unificada (General, Gestión EMCALI, Académico TAAML), PQRS dedicado y drawer flotante de Melva con voz neural.",
+      "tags": ["React 19", "Tailwind", "Leaflet", "SSE", "Melva Live TTS"]
     },
     {
       "id": "whatsapp",

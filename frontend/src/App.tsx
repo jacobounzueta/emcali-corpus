@@ -298,7 +298,7 @@ export default function App() {
   const [storeMemories, setStoreMemories] = useState<MemoryItem[]>([]);
   const [threadCheckpoints, setThreadCheckpoints] = useState<Array<Record<string, any>>>([]);
 
-  // Voz, Hotword ("Mile" / "Oye Mile" / "Hola Mile") y Modo Continuo "Mile Live" (Gemini Live style)
+  // Voz, Hotword ("Melva" / "Oye Melva" / "Hola Melva") y Modo Continuo "Melva Live" (Gemini Live style)
   const [isListeningMic, setIsListeningMic] = useState<boolean>(false);
   const [hotwordStandby, setHotwordStandby] = useState<boolean>(false);
   const [liveSessionActive, setLiveSessionActive] = useState<boolean>(false);
@@ -309,7 +309,7 @@ export default function App() {
   const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
   const [voiceBanner, setVoiceBanner] = useState<string>("");
   const [simulatedVoiceText, setSimulatedVoiceText] = useState<string>(
-    "Oye Mile, ¿cuántas PQR se atendieron en el tercer trimestre?"
+    "Oye Melva, ¿cuántas PQR se atendieron en el tercer trimestre?"
   );
   const recognitionRef = useRef<any>(null);
   const liveSessionRef = useRef<boolean>(false);
@@ -528,7 +528,7 @@ export default function App() {
 
     // 2. Evitar capturar frases propias del asistente TTS por los altavoces
     const selfPhrases = [
-      "soy mile",
+      "soy melva",
       "soy eder",
       "te escucho en vivo",
       "datos exactos validados",
@@ -546,7 +546,7 @@ export default function App() {
       return true;
     }
 
-    // 3. Superposición léxica con el último TTS pronunciado por Mile
+    // 3. Superposición léxica con el último TTS pronunciado por Melva
     const lastTts = lastSpokenTtsRef.current;
     if (lastTts && clean.length > 10 && lastTts.includes(clean)) {
       return true;
@@ -673,7 +673,7 @@ export default function App() {
       window.speechSynthesis.cancel();
     }
     resumeMicAfterSpeakerOutput(200);
-    setVoiceBanner("✋ Barge-In: Respuesta de voz interrumpida. Mile Live te escucha de nuevo...");
+    setVoiceBanner("✋ Barge-In: Respuesta de voz interrumpida. Melva Live te escucha de nuevo...");
   };
 
   const handleSendQuestion = async (overrideQuestion?: string) => {
@@ -818,45 +818,45 @@ export default function App() {
       if (!data.accepted) {
         resumeMicAfterSpeakerOutput(250);
         setVoiceBanner(
-          `⏸️ Ignorado en espera: di "Mile", "Oye Mile" o "Hola Mile" para activar Mile Live (capturado: "${spokenTranscript}").`
+          `⏸️ Ignorado en espera: di "Melva", "Oye Melva" o "Hola Melva" para activar Melva Live (capturado: "${spokenTranscript}").`
         );
         return;
       }
 
       const analysis = data.voice_analysis;
 
-      // Si el usuario dijo "Gracias Mile" / "Eso es todo" -> vuelve a espera
+      // Si el usuario dijo "Gracias Melva" / "Eso es todo" -> vuelve a espera
       if (analysis.sleep_requested) {
         liveSessionRef.current = false;
         setLiveSessionActive(false);
         setVoiceBanner(
-          '🌙 Mile Live en espera. Cuando me necesites vuelve a decir "Oye Mile" o "Hola Mile".'
+          '🌙 Melva Live en espera. Cuando me necesites vuelve a decir "Oye Melva" o "Hola Melva".'
         );
         speakText(
           data.tts_speech_text ||
-            "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Mile."
+            "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Melva."
         );
         return;
       }
 
-      // ¡Hotword detectado! Entramos o permanecemos en Mile Live (modo Gemini Live)
+      // ¡Hotword detectado! Entramos o permanecemos en Melva Live (modo Gemini Live)
       liveSessionRef.current = true;
       setLiveSessionActive(true);
 
       if (analysis.wake_only) {
         setVoiceBanner(
-          `🟢 Mile Live ACTIVO ("${analysis.matched_hotword}"). Habla libremente cuando Mile termine de saludarte (di "Gracias Mile" para salir).`
+          `🟢 Melva Live ACTIVO ("${analysis.matched_hotword}"). Habla libremente cuando Melva termine de saludarte (di "Gracias Melva" para salir).`
         );
         speakText(
           data.tts_speech_text ||
-            "¡Hola! Soy Mile Live. Te escucho en vivo, dime qué necesitas de EMCALI."
+            "¡Hola! Soy Melva Live. Te escucho en vivo, dime qué necesitas de EMCALI."
         );
         return;
       }
 
       const turn: TurnPayload = data.turn;
       setVoiceBanner(
-        `🟢 Mile Live (${analysis.matched_hotword || "Continuo"}) → "${analysis.clean_query}" · Micrófono silenciado mientras Mile habla para evitar eco`
+        `🟢 Melva Live (${analysis.matched_hotword || "Continuo"}) → "${analysis.clean_query}" · Micrófono silenciado mientras Melva habla para evitar eco`
       );
       setLastTurn(turn);
       setMessages((prev) => [
@@ -864,7 +864,7 @@ export default function App() {
         {
           role: "user",
           content: turn.question,
-          voiceHotword: analysis.matched_hotword || "Mile Live",
+          voiceHotword: analysis.matched_hotword || "Melva Live",
         },
         {
           role: "assistant",
@@ -889,7 +889,7 @@ export default function App() {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
       setVoiceBanner(
-        "ℹ️ Tu navegador actual no expone Web Speech API nativa; usa el simulador de Mile Live integrado aquí al lado."
+        "ℹ️ Tu navegador actual no expone Web Speech API nativa; usa el simulador de Melva Live integrado aquí al lado."
       );
       return;
     }
@@ -906,7 +906,7 @@ export default function App() {
       setLiveSessionActive(false);
       setLiveActivity("idle");
       setInterimTranscript("");
-      setVoiceBanner("🛑 Micrófono y sesión Mile Live detenidos.");
+      setVoiceBanner("🛑 Micrófono y sesión Melva Live detenidos.");
       return;
     }
 
@@ -922,13 +922,13 @@ export default function App() {
       setLiveActivity(liveSessionRef.current ? "listening" : "standby");
       setVoiceBanner(
         liveSessionRef.current
-          ? '🟢 Mile Live escuchando en vivo... Habla con naturalidad (o di "Gracias Mile" para pausar)'
-          : '🎧 Standby: di "Mile", "Oye Mile" o "Hola Mile" para despertar el modo Mile Live'
+          ? '🟢 Melva Live escuchando en vivo... Habla con naturalidad (o di "Gracias Melva" para pausar)'
+          : '🎧 Standby: di "Melva", "Oye Melva" o "Hola Melva" para despertar el modo Melva Live'
       );
     };
 
     rec.onresult = (event: any) => {
-      // Bloqueo Half-Duplex: ignorar cualquier audio mientras Mile piensa, habla por TTS o está en ventana de eco
+      // Bloqueo Half-Duplex: ignorar cualquier audio mientras Melva piensa, habla por TTS o está en ventana de eco
       if (
         isTtsSpeakingRef.current ||
         isProcessingVoiceRef.current ||
@@ -968,7 +968,7 @@ export default function App() {
     };
 
     rec.onend = () => {
-      // No auto-reiniciar el micrófono mientras Mile está hablando por los altavoces (se reanuda en utter.onend)
+      // No auto-reiniciar el micrófono mientras Melva está hablando por los altavoces (se reanuda en utter.onend)
       if (isTtsSpeakingRef.current || isProcessingVoiceRef.current) {
         return;
       }
@@ -1186,16 +1186,16 @@ export default function App() {
         </div>
       </div>
 
-      {/* Tarjeta sutil de acceso directo a Mile en el pie del sidebar */}
+      {/* Tarjeta sutil de acceso directo a Melva en el pie del sidebar */}
       <div className="p-3.5 rounded-2xl bg-[#EEF6E6] border border-[#CDE3B4] space-y-2">
         <div className="flex items-center gap-2">
           <img
-            src="/mile-avatar.jpg"
-            alt="Mile"
+            src="/melva-avatar.jpg"
+            alt="Melva"
             className="w-8 h-8 rounded-full object-cover border-2 border-[#579624] shrink-0"
           />
           <div className="min-w-0">
-            <div className="text-xs font-extrabold text-[#141B12] truncate">Mile · Asistente IA</div>
+            <div className="text-xs font-extrabold text-[#141B12] truncate">Melva · Asistente IA</div>
             <div className="text-[10px] text-[#2D5211] font-medium">Voz en vivo &amp; WhatsApp</div>
           </div>
         </div>
@@ -1206,7 +1206,7 @@ export default function App() {
           }}
           className="w-full py-1.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-[11px] font-bold transition cursor-pointer"
         >
-          Abrir chat con Mile
+          Abrir chat con Melva
         </button>
       </div>
     </div>
@@ -1217,7 +1217,7 @@ export default function App() {
       {/* Header Institucional EMCALI 2026 — ¡Siempre Juntos! */}
       <header className="bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-[0_2px_12px_rgba(20,27,18,0.04)]">
         <div className="max-w-[1560px] mx-auto px-4 sm:px-6 pt-3 pb-2.5 flex items-center justify-between gap-3">
-          {/* Izquierda: Menú móvil + Brand Lockup EMCALI ¡Siempre Juntos! + Static Mile Avatar */}
+          {/* Izquierda: Menú móvil + Brand Lockup EMCALI ¡Siempre Juntos! + Static Melva Avatar */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -1234,8 +1234,8 @@ export default function App() {
             >
               <div className="h-10 w-10 rounded-full bg-[#EEF6E6] flex items-center justify-center border border-[#CDE3B4] shrink-0">
                 <img
-                  src="/mile-avatar.jpg"
-                  alt="Mile, asistente virtual de EMCALI"
+                  src="/melva-avatar.jpg"
+                  alt="Melva, asistente virtual de EMCALI"
                   className="h-8 w-8 rounded-full object-cover shadow-xs border-2 border-[#579624]"
                 />
               </div>
@@ -1260,7 +1260,7 @@ export default function App() {
             </button>
           </div>
 
-          {/* Derecha: Botón sutil Hablar con Mile + Reportar Falla + Mi cuenta / Sesión */}
+          {/* Derecha: Botón sutil Hablar con Melva + Reportar Falla + Mi cuenta / Sesión */}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -1273,7 +1273,7 @@ export default function App() {
               title="Abrir o cerrar el asistente virtual Mile"
             >
               <MessageCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Hablar con Mile</span>
+              <span className="hidden sm:inline">Hablar con Melva</span>
             </button>
 
             <button
@@ -2004,8 +2004,8 @@ export default function App() {
         >
           <div className="relative shrink-0">
             <img
-              src="/mile-avatar.jpg"
-              alt="Mile, asistente virtual de EMCALI"
+              src="/melva-avatar.jpg"
+              alt="Melva, asistente virtual de EMCALI"
               className="h-11 w-11 rounded-full object-cover border-2 border-white shadow-xs"
             />
             <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-[#A3E635] ring-2 ring-[#579624]" />
@@ -2015,7 +2015,7 @@ export default function App() {
               ¿En qué te puedo ayudar?
             </div>
             <div className="text-[11px] font-semibold text-[#EEF6E6]">
-              Mile · Asistente Virtual EMCALI
+              Melva · Asistente Virtual EMCALI
             </div>
           </div>
         </button>
@@ -2036,15 +2036,15 @@ export default function App() {
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative shrink-0">
                 <img
-                  src="/mile-avatar.jpg"
-                  alt="Mile"
+                  src="/melva-avatar.jpg"
+                  alt="Melva"
                   className="h-9 w-9 rounded-full object-cover border-2 border-white shadow-xs"
                 />
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-[#A3E635] ring-2 ring-[#579624]" />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-extrabold leading-tight truncate">
-                  Mile · Asistente Virtual
+                  Melva · Asistente Virtual
                 </div>
                 <div className="text-[11px] text-[#EEF6E6] truncate">
                   {authRole === "manager"
@@ -2095,7 +2095,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Barra de Voz Mile Live dentro del Drawer */}
+          {/* Barra de Voz Melva Live dentro del Drawer */}
           <div
             className={`px-3.5 py-2.5 border-b border-[#DDE5D7] space-y-2 shrink-0 ${
               liveSessionActive ? "bg-[#EEF6E6]" : "bg-[#F7FAF4]"
@@ -2121,10 +2121,10 @@ export default function App() {
                   )}
                   <span>
                     {liveSessionActive
-                      ? "🟢 Mile Live (Pausar)"
+                      ? "🟢 Melva Live (Pausar)"
                       : isListeningMic && hotwordStandby
-                      ? 'Escuchando "Oye Mile"...'
-                      : 'Voz ("Oye Mile")'}
+                      ? 'Escuchando "Oye Melva"...'
+                      : 'Voz ("Oye Melva")'}
                   </span>
                 </button>
 
@@ -2166,9 +2166,9 @@ export default function App() {
                 </span>
                 <span className="text-[#2D5211]">
                   {liveActivity === "thinking"
-                    ? "Mile consultando..."
+                    ? "Melva consultando..."
                     : liveActivity === "speaking"
-                    ? "🔊 Mile respondiendo"
+                    ? "🔊 Melva respondiendo"
                     : "🎙️ Te escucho en vivo"}
                 </span>
               </div>
@@ -2178,7 +2178,7 @@ export default function App() {
               <input
                 value={simulatedVoiceText}
                 onChange={(e) => setSimulatedVoiceText(e.target.value)}
-                placeholder='Simulador voz: "Oye Mile, tarifa estrato 3"'
+                placeholder='Simulador voz: "Oye Melva, tarifa estrato 3"'
                 className="flex-1 px-3 py-1.5 rounded-full bg-white border border-[#DDE5D7] text-[11px] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               />
               <button
@@ -2203,7 +2203,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Stream de Mensajes de Mile */}
+          {/* Stream de Mensajes de Melva */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-white">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-8 px-3 text-[#5B6757]">
@@ -2214,11 +2214,11 @@ export default function App() {
                   EMCALI ¡Siempre Juntos! · 24/7
                 </span>
                 <h3 className="text-sm font-extrabold text-[#141B12]">
-                  ¡Hola! Soy Mile, tu asistente virtual
+                  ¡Hola! Soy Melva, tu asistente virtual
                 </h3>
                 <p className="text-xs mt-1 text-[#5B6757] leading-relaxed">
                   Consúltame sobre tarifas, PQRS, fallas en tu barrio, cobertura de fibra óptica o
-                  di <strong className="text-[#141B12]">"Oye Mile"</strong> para hablar por voz.
+                  di <strong className="text-[#141B12]">"Oye Melva"</strong> para hablar por voz.
                 </p>
               </div>
             ) : (
@@ -2235,8 +2235,8 @@ export default function App() {
                     {msg.role === "assistant" && (
                       <div className="shrink-0 w-9 h-9 flex items-center justify-center mt-0.5">
                         <img
-                          src="/mile-avatar.jpg"
-                          alt="Mile"
+                          src="/melva-avatar.jpg"
+                          alt="Melva"
                           className={`w-7 h-7 rounded-full object-cover border-2 ${
                             isLastStreamingAssistant
                               ? "border-[#579624] shadow-md eder-orbit"
@@ -2259,7 +2259,7 @@ export default function App() {
                       )}
                       {isLastStreamingAssistant && !msg.content ? (
                         <span className="text-[#5B6757] italic">
-                          Mile está generando la respuesta...
+                          Melva está generando la respuesta...
                         </span>
                       ) : msg.role === "assistant" ? (
                         renderMarkdownContent(msg.content)
@@ -2286,7 +2286,7 @@ export default function App() {
               <input
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Escribe tu consulta para Mile..."
+                placeholder="Escribe tu consulta para Melva..."
                 className="flex-1 px-4 py-2.5 rounded-full bg-white border border-[#DDE5D7] text-xs text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               />
               <button

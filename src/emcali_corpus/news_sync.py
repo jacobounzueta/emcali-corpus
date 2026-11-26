@@ -473,7 +473,7 @@ def build_daily_newsletter_digest(
         news = db.list_news(limit=limit_news)
 
     lines: list[str] = [
-        "📰 *Boletín Diario EMCALI — Mile Asistente Operativa*",
+        "📰 *Boletín Diario EMCALI — Melva Asistente Operativa*",
         f"Zona de consulta: *{barrio or 'Toda Cali y área de cobertura'}*",
         "",
         f"🔧 *Mantenimientos Activos ({len(maint)}):*",

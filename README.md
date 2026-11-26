@@ -1,4 +1,4 @@
-# ⚡ EMCALI ¡Siempre Juntos! — Mile, Plataforma Agéntica de Operaciones y Atención Ciudadana (M1 · M2 · M3)
+# ⚡ EMCALI ¡Siempre Juntos! — Melva, Plataforma Agéntica de Operaciones y Atención Ciudadana (M1 · M2 · M3)
 
 [![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![CI](https://github.com/jacobounzueta/emcali-corpus/actions/workflows/ci.yml/badge.svg)](https://github.com/jacobounzueta/emcali-corpus/actions/workflows/ci.yml)
@@ -24,7 +24,7 @@ Integra de principio a fin los **3 módulos** del curso TAAML:
   - **Despliegue productivo en Microsoft Azure VPS** con Caddy Auto-HTTPS: **[https://172-183-55-204.sslip.io](https://172-183-55-204.sslip.io)**
   - **WhatsApp Business Real (eSIM dedicada `+57 323 892 3289`)** conectado a **OpenClaw Gateway** (`dmPolicy: "allowlist"` E.164 administrable en vivo desde IAM, auto-allowlist al registrarse y notificaciones proactivas de brigadas/PQRS/fallas).
   - **20 herramientas tipadas (`@tool` + Pydantic v2)** (16 ciudadanas + 4 de gerencia con `tools.deny` + 4 compuertas HITL) documentadas en [`docs/catalogo-20-tools-m3.md`](docs/catalogo-20-tools-m3.md) y expuestas por nuestro servidor MCP propio (`emcali-eder-mcp`) con trazabilidad **LangSmith (`@traceable`)** tanto en Web como en WhatsApp.
-  - **Portal Web EMCALI 2026:** Portada centrada en el **Mapa Operativo de Cali** (Leaflet), barra lateral unificada (**General · Gestión EMCALI · Académico**), sección dedicada de **PQRS**, **Gatekeeper Jev Noticias → Mapa** (`Noul` veto a notas positivas), diagnóstico **UMAP 2D** y **drawer flotante de Mile** con **voz neural femenina colombiana** (`es-CO-SalomeNeural` + switch automático a **ElevenLabs**).
+  - **Portal Web EMCALI 2026:** Portada centrada en el **Mapa Operativo de Cali** (Leaflet), barra lateral unificada (**General · Gestión EMCALI · Académico**), sección dedicada de **PQRS**, **Gatekeeper Jev Noticias → Mapa** (`Noul` veto a notas positivas), diagnóstico **UMAP 2D** y **drawer flotante de Melva** con **voz neural femenina colombiana** (`es-CO-SalomeNeural` + switch automático a **ElevenLabs**).
 
 ---
 
@@ -34,7 +34,7 @@ Integra de principio a fin los **3 módulos** del curso TAAML:
 - [Arquitectura Interactiva (Archify)](#-arquitectura-interactiva-archify--módulos-1-2-y-3)
 - [Capacidades de Módulo 3 (Operaciones & WhatsApp)](#-capacidades-de-módulo-3-operaciones-en-vivo)
 - [Evaluación Cuantitativa & Regresión CI](#-diseño-y-evaluación-cuantitativa-del-retrieval-en-qdrant)
-- [Voz Neural Colombiana (Mile Live & WhatsApp)](#-voz-neural-colombiana-mile-live--whatsapp)
+- [Voz Neural Colombiana (Melva Live & WhatsApp)](#-voz-neural-colombiana-melva-live--whatsapp)
 - [Estructura del Proyecto](#-estructura-del-proyecto-m1--m2--m3)
 - [Créditos y Licencia](#-créditos-y-roles-del-equipo-grupo-5--emcali)
 
@@ -72,7 +72,7 @@ make check
 
 | Capa | Componentes Principales | Responsabilidad |
 | :--- | :--- | :--- |
-| **Canales & UI** | Portal React 19 ([`frontend/`](./frontend/)) · WhatsApp Business (`+57 323 892 3289` vía OpenClaw) | Portada con Mapa Operativo de Cali, barra lateral unificada (General / Gestión EMCALI / Académico), PQRS dedicado, drawer flotante de **Mile** con voz neural colombiana (`es-CO-SalomeNeural` / ElevenLabs) y bot de WhatsApp con allowlist E.164. |
+| **Canales & UI** | Portal React 19 ([`frontend/`](./frontend/)) · WhatsApp Business (`+57 323 892 3289` vía OpenClaw) | Portada con Mapa Operativo de Cali, barra lateral unificada (General / Gestión EMCALI / Académico), PQRS dedicado, drawer flotante de **Melva** con voz neural colombiana (`es-CO-SalomeNeural` / ElevenLabs) y bot de WhatsApp con allowlist E.164. |
 | **API & MCP** | FastAPI ([`api/main.py`](./api/main.py), `api.py`, `api_m3.py`) · Servidor MCP propio ([`mcp_server.py`](./src/emcali_corpus/mcp_server.py)) | Streaming SSE, PBKDF2-SHA256 RBAC (`citizen` vs `manager`), respuestas automáticas por WhatsApp al gestionar PQRS/fallas, y exposición de las 20 herramientas hacia OpenClaw con trazabilidad LangSmith `@traceable`. |
 | **Grafo & Control** | LangGraph `StateGraph` ([`agent_graph.py`](./src/emcali_corpus/agent_graph.py)) · Router **Jev** ([`router.py`](./src/emcali_corpus/router.py)) · Blindaje RAG ([`security.py`](./src/emcali_corpus/security.py)) | Primitivas Jev (`Choice`, `Noul`, `Score`, `Box`) para enrutamiento de chat e ingesta de noticias al mapa, 20 `@tool` Pydantic v2 (16 ciudadanas + 4 gerencia `tools.deny` + 4 HITL), y escudo contra inyección indirecta `<datos_pasivos_corpus>`. |
 | **Datos & Observabilidad** | Qdrant HNSW + BM25 RRF ([`vector_store.py`](./src/emcali_corpus/vector_store.py)) · SQLite Ops + Memoria ([`ops_db.py`](./src/emcali_corpus/ops_db.py), [`memory.py`](./src/emcali_corpus/memory.py)) · LangSmith | 1,386 fragmentos verificados, UMAP 2D, `SqliteSaver` (corto plazo por hilo) + `PersistentSqliteStore` (largo plazo cross-thread por namespace), y trazas unificadas Web + WhatsApp MCP en `emcali-eder-m3`. |
@@ -124,10 +124,10 @@ El módulo [`src/emcali_corpus/retrieval_eval.py`](src/emcali_corpus/retrieval_e
 
 ---
 
-## 🎙️ Voz Neural Colombiana (`Mile Live` & WhatsApp)
+## 🎙️ Voz Neural Colombiana (`Melva Live` & WhatsApp)
 
 - **Síntesis Neural con Fallback Automático (`voice.py` · `POST /api/voice/tts` · `tts_cli.py`):** Utiliza **ElevenLabs** (`eleven_flash_v2_5`) cuando `ELEVENLABS_API_KEY` está configurada, con fallback automático a **Microsoft Edge Neural TTS (`es-CO-SalomeNeural`)** y voz femenina del navegador.
-- **Hotword `Mile Live` en Web:** Activación por `"Mile"`, `"Oye Mile"`, `"Hola Mile"`, corrección fonética colombiana (`EMCALI`, `PQRS`, `kWh`, `Ley 1581`, `PSE`) y protección *half-duplex* + *Barge-In*.
+- **Hotword `Melva Live` en Web:** Activación por `"Melva"`, `"Oye Melva"`, `"Hola Melva"`, corrección fonética colombiana (`EMCALI`, `PQRS`, `kWh`, `Ley 1581`, `PSE`) y protección *half-duplex* + *Barge-In*.
 - **WhatsApp bajo demanda (`tts.auto: "tagged"`):** Responde en texto por defecto y genera notas de voz `.ogg` (vía `@openclaw/tts-local-cli` + `ffmpeg`) únicamente cuando el usuario lo solicita explícitamente.
 
 ---
@@ -142,7 +142,7 @@ emcali-corpus/
 ├── openclaw/                           # Plantilla OpenClaw + workspace (SOUL.md, AGENTS.md, MEMORY.md, skills/)
 ├── frontend/                           # Portal React 19 + TypeScript + Vite (Diseño EMCALI 2026)
 │   └── src/
-│       ├── App.tsx                     # Barra lateral unificada, portada Mapa, drawer flotante Mile y vistas TAAML
+│       ├── App.tsx                     # Barra lateral unificada, portada Mapa, drawer flotante Melva y vistas TAAML
 │       └── components/
 │           ├── M3OperationsSuite.tsx   # Mapa, PQRS, Reportes de Falla, Noticias, UMAP, Auth e IAM/Allowlist
 │           └── CaliMapPanel.tsx        # Mapa georreferenciado Leaflet/OSM de Cali
@@ -166,7 +166,7 @@ emcali-corpus/
 │   ├── news_sync.py                    # Sync noticias en vivo EMCALI 2026 + Gatekeeper Jev Noticias → Mapa
 │   ├── vector_store.py & umap_diagnostics.py  # Qdrant HNSW+BM25 RRF + proyección UMAP 2D
 │   ├── memory.py & security.py         # SqliteSaver, BaseStore y blindaje contra inyección indirecta
-│   └── voice.py & tts_cli.py           # Hotword Mile Live + TTS neural (ElevenLabs / Edge es-CO-SalomeNeural)
+│   └── voice.py & tts_cli.py           # Hotword Melva Live + TTS neural (ElevenLabs / Edge es-CO-SalomeNeural)
 └── tests/                              # Suite de 65 pruebas automatizadas (pytest + CI LLMOps regression gates)
 ```
 

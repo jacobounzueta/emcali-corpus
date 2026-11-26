@@ -215,7 +215,7 @@ def _ensure_phone_in_whatsapp_allowlist(
             _send_whatsapp_notifications_async(
                 [clean],
                 (
-                    f"¡Hola{saludo_nombre}! Soy Mile, asistente virtual de EMCALI 👋. "
+                    f"¡Hola{saludo_nombre}! Soy Melva, asistente virtual de EMCALI 👋. "
                     "Tu número ya quedó habilitado en WhatsApp. Escríbeme aquí para consultar "
                     "tarifas, mantenimientos, radicar PQRS o reportar fallas en Cali."
                 ),
@@ -428,7 +428,7 @@ def update_pqrs_endpoint(
             f"Tu solicitud `{updated['radicado_id']}` ({updated['tipo']} · "
             f"*{str(updated['servicio']).upper()}* en *{updated['barrio']}*) "
             f"cambió a estado: *{updated['estado']}*.{nota_txt}\n"
-            "Si necesitas seguimiento adicional, respóndeme por aquí. — Mile 👋"
+            "Si necesitas seguimiento adicional, respóndeme por aquí. — Melva 👋"
         )
         notified = _send_whatsapp_notifications_async([phone], msg)
     return {"status": "updated", "ticket": updated, "whatsapp_notified": bool(notified)}
@@ -481,7 +481,7 @@ def update_failure_endpoint(
             "🛠️ *Actualización de Reporte de Falla — EMCALI*\n"
             f"Tu reporte `{updated['reporte_id']}` (*{str(updated['servicio']).upper()}* "
             f"en *{updated['barrio']}*) pasó a estado: *{updated['estado']}*.{nota_txt}\n"
-            "Gracias por reportar. Cualquier novedad respóndeme por aquí. — Mile 👋"
+            "Gracias por reportar. Cualquier novedad respóndeme por aquí. — Melva 👋"
         )
         notified = _send_whatsapp_notifications_async([phone], msg)
     return {"status": "updated", "report": updated, "whatsapp_notified": bool(notified)}
