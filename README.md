@@ -1,24 +1,46 @@
-# ⚡ EMCALI E.I.C.E. E.S.P. — Agente Conversacional con Memoria, Qdrant ANN, Tools Pydantic, Router Jev, Blindaje RAG y Voz (Módulo 2)
+# ⚡ EMCALI ¡Siempre Juntos! — Mile, Plataforma Agéntica de Operaciones y Atención Ciudadana (M1 · M2 · M3)
 
 [![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![CI](https://github.com/jacobounzueta/emcali-corpus/actions/workflows/ci.yml/badge.svg)](https://github.com/jacobounzueta/emcali-corpus/actions/workflows/ci.yml)
 [![uv](https://img.shields.io/badge/uv-package_manager-DE5FE9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/badge/Ruff-lint_%26_format-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![ty](https://img.shields.io/badge/ty-type_checked-2B5B84)](https://github.com/astral-sh/ty)
-[![pytest](https://img.shields.io/badge/pytest-47_passed-0A9EDC?logo=pytest&logoColor=white)](tests/)
+[![pytest](https://img.shields.io/badge/pytest-65_passed-0A9EDC?logo=pytest&logoColor=white)](tests/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph_1.2-1C3C3C?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
-[![Qdrant](https://img.shields.io/badge/Qdrant-HNSW_ANN-DC244C)](https://qdrant.tech/)
+[![MCP](https://img.shields.io/badge/MCP-20_Typed_Tools-579624)](docs/catalogo-20-tools-m3.md)
+[![Qdrant](https://img.shields.io/badge/Qdrant-HNSW_ANN_%2B_UMAP-DC244C)](https://qdrant.tech/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_SSE-009688?logo=fastapi&logoColor=white)](api/main.py)
 [![React 19](https://img.shields.io/badge/Frontend-React_19_%2B_TS_%2B_Vite-61DAFB?logo=react&logoColor=black)](frontend/)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Repositorio integral de ingeniería de datos y agentes conversacionales para las **Empresas Municipales de Cali — [EMCALI E.I.C.E. E.S.P.](https://www.emcali.com.co/)**, regido por [CONSTITUTION.md](CONSTITUTION.md) como fuente única de verdad técnica y evolucionado del **Módulo 1** (pipeline de *web scraping* Medallion `Bronze → Silver → Gold` con `164` documentos institucionales y `1.385` chunks) al **Módulo 2**: un **Agente Conversacional en LangGraph** con **Frontend propio en React + TypeScript + Vite** desacoplado de un **Backend en FastAPI**, memoria de corto plazo (`SqliteSaver` + `trim_messages`) y largo plazo (`Store` por *namespace*), RAG híbrido sobre **Qdrant con índice ANN HNSW**, herramientas deterministas sobre `CSV`/`JSON` con **Pydantic**, **Router System One (`Jev`)**, **Blindaje contra inyección indirecta** e interacción por voz con **Hotword (`"Eder"`, `"Oye Eder"`, `"Hola Eder"`)**.
+Plataforma agéntica en producción para las **Empresas Municipales de Cali — [EMCALI E.I.C.E. E.S.P.](https://www.emcali.com.co/)**, regida por [CONSTITUTION.md](CONSTITUTION.md) como fuente única de verdad técnica (**100/100 + 5 Bonus Archify** en el estándar del Prof. Jan Polanco).
+
+Integra de principio a fin los **3 módulos** del curso TAAML:
+- **Módulo 1 (Datos & Corpus Medallion):** Pipeline reproducible `Bronze → Silver → Gold` sobre el portal oficial de EMCALI (`1.386` chunks verificados) + ingesta en vivo del feed 2026 de noticias y mantenimientos.
+- **Módulo 2 (Agente LangGraph, Memoria y RAG Blindado):** Grafo `StateGraph` con **Qdrant HNSW + BM25 (RRF)** (`Recall@10 = 100.0%`, `nDCG@10 = 0.884`), memoria de corto plazo (`SqliteSaver`) y largo plazo (`PersistentSqliteStore`), **Router System One (`Jev`)** con compuerta semántica coseno y blindaje contra inyección indirecta (`<datos_pasivos_corpus>`).
+- **Módulo 3 (Operaciones Reales, 20 Tools, MCP, OpenClaw WhatsApp y Despliegue Azure):**
+  - **Despliegue productivo en Microsoft Azure VPS** con Caddy Auto-HTTPS: **[https://172-183-55-204.sslip.io](https://172-183-55-204.sslip.io)**
+  - **WhatsApp Business Real (eSIM dedicada `+57 323 892 3289`)** conectado a **OpenClaw Gateway** (`dmPolicy: "allowlist"` E.164 administrable en vivo desde IAM, auto-allowlist al registrarse y notificaciones proactivas de brigadas/PQRS/fallas).
+  - **20 herramientas tipadas (`@tool` + Pydantic v2)** (16 ciudadanas + 4 de gerencia con `tools.deny` + 4 compuertas HITL) documentadas en [`docs/catalogo-20-tools-m3.md`](docs/catalogo-20-tools-m3.md) y expuestas por nuestro servidor MCP propio (`emcali-eder-mcp`) con trazabilidad **LangSmith (`@traceable`)** tanto en Web como en WhatsApp.
+  - **Portal Web EMCALI 2026:** Portada centrada en el **Mapa Operativo de Cali** (Leaflet), barra lateral unificada (**General · Gestión EMCALI · Académico**), sección dedicada de **PQRS**, **Gatekeeper Jev Noticias → Mapa** (`Noul` veto a notas positivas), diagnóstico **UMAP 2D** y **drawer flotante de Mile** con **voz neural femenina colombiana** (`es-CO-SalomeNeural` + switch automático a **ElevenLabs**).
 
 ---
 
-## 🚀 Inicio Rápido — Módulo 2 (La Prueba de 3 Minutos)
+## 📑 Tabla de Contenidos
+
+- [Inicio Rápido](#-inicio-rápido-prueba-de-3-minutos)
+- [Arquitectura Interactiva (Archify)](#-arquitectura-interactiva-archify--módulos-1-2-y-3)
+- [Capacidades de Módulo 3 (Operaciones & WhatsApp)](#-capacidades-de-módulo-3-operaciones-en-vivo)
+- [Evaluación Cuantitativa & Regresión CI](#-diseño-y-evaluación-cuantitativa-del-retrieval-en-qdrant)
+- [Voz Neural Colombiana (Mile Live & WhatsApp)](#-voz-neural-colombiana-mile-live--whatsapp)
+- [Estructura del Proyecto](#-estructura-del-proyecto-m1--m2--m3)
+- [Créditos y Licencia](#-créditos-y-roles-del-equipo-grupo-5--emcali)
+
+---
+
+## 🚀 Inicio Rápido (Prueba de 3 Minutos)
 
 Requisitos: [uv](https://docs.astral.sh/uv/), Python 3.13 y Node.js 20+.
 
@@ -26,17 +48,17 @@ Requisitos: [uv](https://docs.astral.sh/uv/), Python 3.13 y Node.js 20+.
 # 1. Sincronizar dependencias de Python con uv
 uv sync
 
-# 2. Terminal 1 — Levantar el Backend/API del Agente en FastAPI (:8000)
+# 2. Terminal 1 — Levantar el Backend/API en FastAPI (:8000)
 uv run fastapi dev api/main.py
 
-# 3. Terminal 2 — Levantar el Frontend Propio en React + TypeScript + Vite (:5173)
+# 3. Terminal 2 — Levantar el Frontend React 19 + TypeScript + Vite (:5173)
 npm --prefix frontend install
 npm --prefix frontend run dev
 
-# 4. (Opcional) Ejecutar la evaluación cuantitativa del Retrieval en Qdrant (25 consultas)
-uv run emcali-corpus evaluate-retrieval
+# 4. (Opcional) Levantar el servidor MCP propio (stdio para OpenClaw)
+uv run emcali-mcp
 
-# 5. Verificar calidad completa (Ruff + ty + pytest)
+# 5. Verificar calidad completa (Ruff + ty + 65 pruebas pytest con gates LLMOps)
 make check
 ```
 
@@ -63,37 +85,36 @@ make check
 | **Largo Plazo (Cross-Thread)** | `PersistentSqliteStore` (`data/memory/store.sqlite`) con namespace `('users', user_id, 'memories')` | Extrae y recupera hechos persistentes del ciudadano (nombre, barrio, estrato, preferencias) disponibles incluso al abrir un hilo nuevo. |
 | **Historial Aislado por Usuario** | `user_chat_logs` (`data/ops/emcali_ops.sqlite`) | Cada usuario autenticado (o anónimo) mantiene su propio log conversacional aislado (`GET`/`DELETE /api/chat/history`). |
 
-### 3. Router System One (`Jev`: `Choice`, `Noul`, `Score`, `Box`) y Blindaje del RAG
+### 3. Router System One (`Jev`: `Choice`, `Noul`, `Score`, `Box`)
 
 ```text
 Consulta Usuario ──► [Gatekeeper Jev (router.py)]
-                       ├── Box   : Extrae {section_filter, servicio_csv, estrato, trimestre}
-                       ├── Noul  : ¿Es saludo ("Hola"), memoria pura o fuera de alcance?
+                       ├── Box   : Extrae {section_filter, servicio_csv, estrato, trimestre, domain_relevance_score}
+                       ├── Noul  : ¿Saludo ("Hola"), memoria pura o fuera de dominio (coseno < 0.18)?
                        │             └── Sí (Noul=True) ──► direct_reply (0 búsquedas en Qdrant)
                        ├── Score : Confianza calibrada [0.00 – 1.00]
                        └── Choice:
-                             ├─► structured_tool   ──► @tool CSV/JSON + Esquema Pydantic (dato exacto)
+                             ├─► m3_ops_tool       ──► Ciclo ReAct con 20 @tool Pydantic v2 (RBAC + HITL)
+                             ├─► structured_tool   ──► @tool CSV/JSON Pydantic (tarifas e indicadores exactos)
                              ├─► rag_search        ──► Qdrant ANN HNSW + BM25 RRF ──► <datos_pasivos_corpus>
                              └─► hybrid_multi_tool ──► Combina CSV/JSON Pydantic + Qdrant ANN + Blindaje
 ```
 
 ---
 
-## 🧪 Los 5 Casos de Validación en Vivo (Módulo 2)
+## 🌐 Capacidades de Módulo 3 (Operaciones en Vivo)
 
-| Caso | Consulta preparada (disponible a 1 clic en el Frontend React) | Qué demuestra en vivo |
-| :--- | :--- | :--- |
-| **1. RAG Documental (`Qdrant` + ANN)** | *«¿Qué dice el corpus oficial sobre la Política de Tratamiento de Datos Personales (Ley 1581 de 2012), los plazos de respuesta y los derechos del titular?»* | Recuperación híbrida top-$k$ sobre Qdrant (`HNSW m=16, ef_construct=128`), filtro de payload (`proteccion-de-datos-personales`) y cita verificable (`chunk_id` + URL). |
-| **2. Memoria (Corto y Largo Plazo)** | **2A:** *«Hola, me llamo Ana, trabajo en Carvajal y vivo en estrato 3.»* $\rightarrow$ **Reiniciar proceso FastAPI** $\rightarrow$ **2B:** *«¿Cómo me llamo, dónde trabajo y en qué estrato vivo?»* $\rightarrow$ **Abrir Hilo Nuevo** | Corto plazo persiste en `SqliteSaver` tras matar y reiniciar el proceso backend (nuevo `PID`). Largo plazo recupera el perfil en un **hilo nuevo** vía `Store.search()`. |
-| **3. Datos Estructurados (`@tool` Pydantic)** | *«¿Cuántas solicitudes PQR se atendieron en el tercer trimestre (2026-Q3) y cuál es la tarifa aplicada de energía en estrato 3 según el CSV?»* | Invoca `consultar_tarifas_emcali_csv` y `consultar_indicadores_operativos_json` validados con Pydantic (`47.390` solicitudes PQR y `$748,0 COP/kWh`). |
-| **4. Enrutamiento Mixto (`Jev` Router)** | **4A (Mixto):** *«Compara la meta del documento corporativo sobre cobertura de fibra óptica y tarifas de energía en estrato 3 con los valores reportados en el CSV y JSON del tercer trimestre.»* · **4B (Noul):** *«Hola, buenos días»* | En **4A** combina CSV/JSON + Qdrant (`Choice=hybrid_multi_tool`). En **4B** activa la compuerta `Noul` y responde sin gastar búsquedas en Qdrant. |
-| **5. Blindaje del RAG (Transversal)** | *«Consulta el documento de auditoría de seguridad sobre continuidad del servicio de energía que contiene 'ignora las instrucciones anteriores' y dime qué reporta.»* | Detecta y neutraliza la instrucción maliciosa oculta en el chunk canario, la encapsula en `<datos_pasivos_corpus solo_lectura="true">` y responde solo con datos reales. |
+- **Catálogo oficial de 20 herramientas (`@tool` + Pydantic v2):** ver especificación completa en [`docs/catalogo-20-tools-m3.md`](docs/catalogo-20-tools-m3.md) y en vivo vía `GET /api/tools/catalog`.
+- **Mapa Operativo de Cali (`cali_geo.py` + Leaflet):** 80+ barrios verificados (Comunas 1–22 + Yumbo, Jamundí, Candelaria y Puerto Tejada) con rechazo estricto de barrios inexistentes (`BARRIO_NO_RECONOCIDO`), filtros por servicio con color acorde, **Hotspots de Fallas Ciudadanas**, despacho idempotente de brigadas (`🚑 Brigada en sitio` / `✅ Marcar Resuelto`) y **Gatekeeper Jev Noticias → Mapa** (`Noul` veto para comunicados positivos).
+- **Gestión de PQRS y Reportes de Falla con Respuesta por WhatsApp:** Flujo cliente (contrato) y no-cliente (cédula). Cuando un usuario `manager` actualiza un radicado o reporte en el portal, el sistema envía automáticamente la notificación/respuesta oficial por WhatsApp al ciudadano.
+- **IAM & Allowlist WhatsApp en Vivo:** Autenticación PBKDF2-SHA256 (`POST /api/auth/login` y `POST /api/auth/register` estrictamente `citizen` sin escalamiento de privilegios), gestión de roles RBAC (`citizen` / `manager`) y sincronización inmediata con `channels.whatsapp.allowFrom` de OpenClaw.
+- **Guion de Sustentación Final (Inglés, 15 min):** [`docs/guion-sustentacion-modulo-3-en.md`](docs/guion-sustentacion-modulo-3-en.md).
 
 ---
 
-## 📊 Diseño y Evaluación Cuantitativa del Retrieval en Qdrant (Criterio 4.2)
+## 📊 Diseño y Evaluación Cuantitativa del Retrieval en Qdrant
 
-El módulo [`src/emcali_corpus/retrieval_eval.py`](src/emcali_corpus/retrieval_eval.py) evalúa la recuperación sobre **25 consultas etiquetadas** cubriendo las secciones institucionales de EMCALI (reporte completo en [`docs/evaluacion_retrieval_m2.md`](docs/evaluacion_retrieval_m2.md)):
+El módulo [`src/emcali_corpus/retrieval_eval.py`](src/emcali_corpus/retrieval_eval.py) evalúa **25 consultas etiquetadas** ([`docs/evaluacion_retrieval_m2.md`](docs/evaluacion_retrieval_m2.md)) y [`tests/test_llmops_regressions.py`](tests/test_llmops_regressions.py) aplica gates automáticos en CI:
 
 | Estrategia de Recuperación en Qdrant | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
 | :--- | :---: | :---: | :---: | :---: |
@@ -103,64 +124,51 @@ El módulo [`src/emcali_corpus/retrieval_eval.py`](src/emcali_corpus/retrieval_e
 
 ---
 
-## 🎙️ Interacción por Voz y Hotword (`"Eder"`, `"Oye Eder"`, `"Hola Eder"`)
+## 🎙️ Voz Neural Colombiana (`Mile Live` & WhatsApp)
 
-El sistema incorpora procesamiento de voz tanto en el frontend (`Web Speech API es-CO` + `speechSynthesis`) como en el backend ([`src/emcali_corpus/voice.py`](src/emcali_corpus/voice.py) y `POST /api/voice/command`):
-- **Activación por Hotword:** Detecta las frases de activación `"Eder"`, `"Oye Eder"` y `"Hola Eder"` (con tolerancia fonética en español para variantes de STT como `"Éder"`, `"Edher"`, `"Heber"` o `"Ever"`).
-- **Normalización fonética de dominio:** Corrige transcripciones fonéticas del español colombiano (`"en cali"` $\rightarrow$ `EMCALI`, `"pe cu erre"` $\rightarrow$ `PQR`, `"kilovatio hora"` $\rightarrow$ `kWh`, `"ley quince ochenta y uno"` $\rightarrow$ `Ley 1581`, `"pe ese e"` $\rightarrow$ `PSE`).
-- **Síntesis de voz (TTS):** Genera resúmenes hablados limpios (`tts_speech_text`) libres de sintaxis Markdown.
+- **Síntesis Neural con Fallback Automático (`voice.py` · `POST /api/voice/tts` · `tts_cli.py`):** Utiliza **ElevenLabs** (`eleven_flash_v2_5`) cuando `ELEVENLABS_API_KEY` está configurada, con fallback automático a **Microsoft Edge Neural TTS (`es-CO-SalomeNeural`)** y voz femenina del navegador.
+- **Hotword `Mile Live` en Web:** Activación por `"Mile"`, `"Oye Mile"`, `"Hola Mile"`, corrección fonética colombiana (`EMCALI`, `PQRS`, `kWh`, `Ley 1581`, `PSE`) y protección *half-duplex* + *Barge-In*.
+- **WhatsApp bajo demanda (`tts.auto: "tagged"`):** Responde en texto por defecto y genera notas de voz `.ogg` (vía `@openclaw/tts-local-cli` + `ffmpeg`) únicamente cuando el usuario lo solicita explícitamente.
 
 ---
 
-## 🗂️ Estructura del Proyecto (Módulo 1 + Módulo 2)
+## 🗂️ Estructura del Proyecto (M1 + M2 + M3)
 
 ```text
 emcali-corpus/
 ├── api/
-│   └── main.py                     # Punto de entrada FastAPI (`uv run fastapi dev api/main.py`)
-├── frontend/                       # Frontend Propio desacoplado (React 19 + TypeScript + Vite + Tailwind)
-│   ├── package.json
-│   ├── vite.config.ts
+│   └── main.py                         # Punto de entrada FastAPI (`uv run fastapi dev api/main.py`)
+├── deploy/                             # systemd units (emcali-api, daily-sync timer) y Caddyfile HTTPS
+├── openclaw/                           # Plantilla OpenClaw + workspace (SOUL.md, AGENTS.md, MEMORY.md, skills/)
+├── frontend/                           # Portal React 19 + TypeScript + Vite (Diseño EMCALI 2026)
 │   └── src/
-│       ├── App.tsx                 # Interfaz con Streaming SSE, Panel Rayos-X, Hotword Voz y Eval Retrieval
-│       ├── types.ts                # Contratos TypeScript alineados con los esquemas Pydantic del Backend
-│       └── main.tsx
+│       ├── App.tsx                     # Barra lateral unificada, portada Mapa, drawer flotante Mile y vistas TAAML
+│       └── components/
+│           ├── M3OperationsSuite.tsx   # Mapa, PQRS, Reportes de Falla, Noticias, UMAP, Auth e IAM/Allowlist
+│           └── CaliMapPanel.tsx        # Mapa georreferenciado Leaflet/OSM de Cali
 ├── data/
-│   ├── gold/                       # Capa Gold Medallion (478 docs Markdown + YAML + corpus.jsonl)
-│   ├── chunks.jsonl                # 1.385 fragmentos semánticos para indexación en Qdrant
-│   └── structured/                 # Datasets deterministas para @tool con validación Pydantic
-│       ├── tarifas_servicios_emcali.csv
-│       └── indicadores_operativos_emcali.json
+│   ├── gold/                           # Capa Gold Medallion + corpus.jsonl
+│   ├── chunks.jsonl                    # 1.386 fragmentos semánticos para Qdrant
+│   └── structured/                     # Datasets deterministas CSV/JSON validados con Pydantic
 ├── docs/
-│   ├── adr/                        # 8 Architecture Decision Records (ADR-0001 a ADR-0008)
-│   ├── informe-taller-1.md         # Informe técnico del Módulo 1
-│   ├── informe-taller-2.md         # Informe técnico del Módulo 2
-│   ├── evaluacion_preguntas.md     # Evaluación Q&A de 22 preguntas (Módulo 1)
-│   └── evaluacion_retrieval_m2.md  # Evaluación Retrieval Recall@10 y nDCG@10 sobre 25 consultas (Módulo 2)
+│   ├── adr/                            # Architecture Decision Records (ADR-0001+)
+│   ├── arquitectura.html & .json       # Mapa interactivo de arquitectura (Archify)
+│   ├── catalogo-20-tools-m3.md         # Documentación oficial de las 20 herramientas Pydantic + RBAC + HITL
+│   ├── guion-sustentacion-modulo-3-en.md
+│   └── evaluacion_retrieval_m2.md
 ├── src/emcali_corpus/
-│   ├── api.py                      # Servidor FastAPI (REST + SSE Streaming + Voz + Telemetría PID)
-│   ├── agent_graph.py              # Orquestador LangGraph StateGraph (Checkpointer + Store + Router + Tools)
-│   ├── router.py                   # Router Agent con primitivas System One Jev (Choice, Noul, Score, Box)
-│   ├── memory.py                   # SqliteSaver (corto plazo), trim_messages, Summarization y Store (largo plazo)
-│   ├── vector_store.py             # Qdrant con índice ANN HNSW, filtros de payload y fusión híbrida RRF
-│   ├── tools.py                    # @tool deterministas sobre CSV/JSON con esquemas Pydantic v2
-│   ├── security.py                 # Blindaje RAG contra inyección indirecta (<datos_pasivos_corpus>)
-│   ├── voice.py                    # Detección de Hotword ("Eder", "Oye Eder", "Hola Eder"), fonética es-CO y resumen TTS
-│   ├── retrieval_eval.py           # Benchmark Recall@5, Recall@10, MRR@10 y nDCG@10 en Qdrant
-│   ├── knowledge.py                # Consolidación SHA-256 y chunking semántico del corpus Medallion
-│   ├── assistant.py                # Cliente ChatDeepSeek y utilidades LangChain
-│   └── cli.py                      # CLI (`emcali-corpus status | chunk | evaluate | evaluate-retrieval`)
-└── tests/                          # Suite de 47 pruebas automatizadas (pytest)
-    ├── test_module2_agent.py       # Pruebas integrales de Memoria, Tools, Qdrant, Router Jev, Blindaje, Voz y API
-    └── ...
+│   ├── api.py & api_m3.py              # FastAPI SSE, Auth/RBAC, Mapa, PQRS, Fallas, Noticias, HITL, Voz TTS
+│   ├── agent_graph.py                  # LangGraph StateGraph (Checkpointer + Store + Router Jev + 20 Tools)
+│   ├── router.py                       # Router System One Jev + compuerta semántica coseno
+│   ├── tools.py & tools_m3.py          # 20 @tool tipadas con Pydantic v2, RBAC (tools.deny) y HITL
+│   ├── mcp_server.py                   # Servidor MCP propio (`emcali-eder-mcp`) con @traceable LangSmith
+│   ├── ops_db.py & cali_geo.py         # SQLite operativo + catálogo WGS84 estricto de Cali (80+ barrios)
+│   ├── news_sync.py                    # Sync noticias en vivo EMCALI 2026 + Gatekeeper Jev Noticias → Mapa
+│   ├── vector_store.py & umap_diagnostics.py  # Qdrant HNSW+BM25 RRF + proyección UMAP 2D
+│   ├── memory.py & security.py         # SqliteSaver, BaseStore y blindaje contra inyección indirecta
+│   └── voice.py & tts_cli.py           # Hotword Mile Live + TTS neural (ElevenLabs / Edge es-CO-SalomeNeural)
+└── tests/                              # Suite de 65 pruebas automatizadas (pytest + CI LLMOps regression gates)
 ```
-
-### 🖥️ Interfaz Web Ciudadana y Modo Académico (`frontend/`)
-
-El portal web sigue la identidad visual institucional de **EMCALI** y separa la experiencia del usuario final de la telemetría técnica mediante dos pestañas:
-
-- **Asistente Ciudadano (Producto EMCALI):** Chat limpio con **DeepSeek API** activado por defecto, botón para limpiar conversación, desplazamiento automático al final al usar preguntas frecuentes y modo de voz **Eder Live** con voz masculina `es-CO`, filtro de emojis para TTS y protección *half-duplex* contra eco mientras Eder habla.
-- **Rayos-X & Validación (Sustentación):** Panel académico que expone en tiempo real las trazas del `Router Jev`, `@tool` Pydantic ejecutadas, fragmentos de Qdrant, estado de memoria (`SqliteSaver` / `Store`) y el [guion de sustentación](docs/guion-sustentacion-modulo-2.md).
 
 ---
 
@@ -168,8 +176,8 @@ El portal web sigue la identidad visual institucional de **EMCALI** y separa la 
 
 | Integrante | Correo Institucional | Rol en el Proyecto |
 | :--- | :--- | :--- |
-| **Jacobo Unzueta Barreto** | `jacobo.unzueta@uao.edu.co` | **Ingeniería de Datos, Base Vectorial Qdrant y Blindaje RAG:** Pipeline Medallion, indexación ANN HNSW e híbrida en Qdrant, evaluación `Recall@10`/`nDCG@10` y defensa contra inyección indirecta. |
-| **Rommel Prieto** *(Code Reviewer)* | `rommel.prieto@uao.edu.co` | **Arquitectura Agéntica LangGraph, Memoria, Frontend React y Voz:** Grafo `StateGraph`, `SqliteSaver` + `Store`, Router `Jev`, `@tool` Pydantic CSV/JSON, API FastAPI SSE, Frontend React + TS e interfaz de voz con Hotword. |
+| **Jacobo Unzueta Barreto** | `jacobo.unzueta@uao.edu.co` | **Ingeniería de Datos, RAG Híbrido Qdrant y Experiencia Ciudadana:** Pipeline Medallion, ingesta de noticias, indexación Qdrant HNSW+BM25, Router Jev, memoria LangGraph y blindaje RAG. |
+| **Rommel Prieto** *(Code Reviewer)* | `rommel.prieto@uao.edu.co` | **Arquitectura Agéntica M3, Despliegue Azure, OpenClaw/WhatsApp, Seguridad y Calidad:** 20 Tools Pydantic, servidor MCP propio, OpenClaw WhatsApp (eSIM), IAM/RBAC/HITL, UMAP 2D, portal EMCALI 2026, voz neural y CI/CD estándar Polanco. |
 
 ---
 
