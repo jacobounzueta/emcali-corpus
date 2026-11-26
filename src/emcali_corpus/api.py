@@ -63,16 +63,16 @@ class ChatRequest(BaseModel):
 
 
 class VoiceCommandRequest(BaseModel):
-    """Petición de comando por voz con soporte de hotword ('Eder', 'Oye Eder', 'Hola Eder')."""
+    """Petición de comando por voz con soporte de hotword ('Mile', 'Oye Mile', 'Hola Mile')."""
 
     transcript: str = Field(min_length=1, description="Transcripción capturada del micrófono.")
     require_hotword: bool = Field(
         default=False,
-        description="Si True, exige que la frase empiece con 'Eder', 'Oye Eder' o 'Hola Eder'.",
+        description="Si True, exige que la frase empiece con 'Mile', 'Oye Mile' o 'Hola Mile'.",
     )
     live_session_active: bool = Field(
         default=False,
-        description="True cuando Eder Live ya fue activado y escucha turnos continuos.",
+        description="True cuando Mile Live ya fue activado y escucha turnos continuos.",
     )
     thread_id: str = Field(default="hilo-demo-m2")
     user_id: str = Field(default="ana-carvajal")
@@ -359,7 +359,7 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 "turn": None,
                 "live_session_active": False,
                 "tts_speech_text": (
-                    "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Eder."
+                    "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Mile."
                 ),
             }
 
@@ -368,12 +368,12 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 "accepted": False,
                 "voice_analysis": analysis.model_dump(),
                 "live_session_active": payload.live_session_active,
-                "message": "No se detectó el hotword ('Eder', 'Oye Eder' o 'Hola Eder').",
+                "message": "No se detectó el hotword ('Mile', 'Oye Mile' o 'Hola Mile').",
             }
 
         if analysis.wake_only:
             wake_reply = (
-                "¡Eder Live activado! Hotword **'Oye Eder'** detectado. A partir de ahora "
+                "¡Mile Live activado! Hotword **'Oye Mile'** detectado. A partir de ahora "
                 "te escucho en vivo de forma continua sin necesidad de repetir el hotword."
             )
             return {
@@ -382,7 +382,7 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 "turn": None,
                 "live_session_active": True,
                 "tts_speech_text": (
-                    "¡Hola! Soy Eder Live. Te escucho en vivo, dime qué necesitas de EMCALI."
+                    "¡Hola! Soy Mile Live. Te escucho en vivo, dime qué necesitas de EMCALI."
                 ),
                 "wake_greeting": wake_reply,
             }

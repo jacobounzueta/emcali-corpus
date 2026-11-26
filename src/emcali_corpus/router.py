@@ -64,9 +64,9 @@ RouteChoice = Literal[
 GREETING_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"^\s*(?:¡?hola!?|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|saludos|"
-        r"hey|oye|qu[eé]\s+tal|gracias|muchas\s+gracias|ok|listo|perfecto|eder|éder)"
+        r"hey|oye|qu[eé]\s+tal|gracias|muchas\s+gracias|ok|listo|perfecto|mile|eder|éder)"
         r"(?:[,.\s!¡?¿]+(?:hola|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|"
-        r"saludos|c[oó]mo\s+est[aá]s|qu[eé]\s+tal|eder|éder|emcali|asistente))*[!.?\s]*$",
+        r"saludos|c[oó]mo\s+est[aá]s|qu[eé]\s+tal|mile|eder|éder|emcali|asistente))*[!.?\s]*$",
         re.IGNORECASE,
     ),
 )

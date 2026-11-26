@@ -1,4 +1,4 @@
-"""Procesamiento de voz, detección de hotword ('Eder', 'Oye Eder', 'Hola Eder') y síntesis TTS."""
+"""Procesamiento de voz, detección de hotword ('Mile', 'Oye Mile', 'Hola Mile') y síntesis TTS."""
 
 from __future__ import annotations
 
@@ -8,6 +8,13 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 HOTWORD_ALIASES: tuple[str, ...] = (
+    "oye mile",
+    "hola mile",
+    "mile",
+    "hey mile",
+    "ok mile",
+    "oye mila",
+    "hola mila",
     "oye eder",
     "hola eder",
     "eder",
@@ -21,25 +28,26 @@ HOTWORD_ALIASES: tuple[str, ...] = (
 
 HOTWORD_REGEX = re.compile(
     r"^\s*(?:(?:oye|hola|hey|ok|buenos\s+d[ií]as|buenas\s+tardes)\s+)?"
-    r"(?:eder|éder|edher|heber|ever|emcali|em\s+cali|en\s+cali)\b[,.:;!\s-]*",
+    r"(?:mile|myle|mila|milena|eder|éder|edher|heber|ever|emcali|em\s+cali|en\s+cali)\b[,.:;!\s-]*",
     re.IGNORECASE,
 )
 
 SLEEP_REGEX = re.compile(
-    r"^\s*(?:(?:muchas\s+)?gracias(?:\s+eder)?|adi[oó]s(?:\s+eder)?|"
-    r"hasta\s+luego(?:\s+eder)?|eso\s+es\s+todo(?:\s+eder)?|"
-    r"detente(?:\s+eder)?|para\s+eder|terminar\s+sesi[oó]n|modo\s+espera)\s*[.!]*$",
+    r"^\s*(?:(?:muchas\s+)?gracias(?:\s+(?:mile|eder))?|adi[oó]s(?:\s+(?:mile|eder))?|"
+    r"hasta\s+luego(?:\s+(?:mile|eder))?|eso\s+es\s+todo(?:\s+(?:mile|eder))?|"
+    r"detente(?:\s+(?:mile|eder))?|para\s+(?:mile|eder)|terminar\s+sesi[oó]n|modo\s+espera)\s*[.!]*$",
     re.IGNORECASE,
 )
 
 SELF_ECHO_REGEX = re.compile(
-    r"(?:soy\s+eder\s+live|te\s+escucho\s+en\s+vivo|datos\s+exactos\s+validados|"
+    r"(?:soy\s+(?:mile|eder)\s+live|te\s+escucho\s+en\s+vivo|datos\s+exactos\s+validados|"
     r"fuente\s+estructurada|tarifa\s+aplicada\s+promedio|paso\s+a\s+modo\s+de\s+espera|"
     r"subsidio\s+contribuci[oó]n)",
     re.IGNORECASE,
 )
 
 PHONETIC_REPLACEMENTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b(myle|mila)\b", re.IGNORECASE), "Mile"),
     (re.compile(r"\b(éder|edher|heber)\b", re.IGNORECASE), "Eder"),
     (re.compile(r"\b(em\s+cali|en\s+cali)\b", re.IGNORECASE), "EMCALI"),
     (re.compile(r"\b(pe\s*cu\s*erre\s*ese|p\s*q\s*r\s*s)\b", re.IGNORECASE), "PQRS"),
@@ -58,7 +66,7 @@ EMOJI_RE = re.compile(
 
 
 class VoiceCommandAnalysis(BaseModel):
-    """Resultado de procesar una transcripción de voz con Hotword ('Oye Eder' / 'Hola Eder')."""
+    """Resultado de procesar una transcripción de voz con Hotword ('Oye Mile' / 'Hola Mile')."""
 
     raw_transcript: str = Field(description="Transcripción cruda capturada del micrófono.")
     normalized_transcript: str = Field(
@@ -67,7 +75,7 @@ class VoiceCommandAnalysis(BaseModel):
     hotword_detected: bool = Field(
         default=False,
         description=(
-            "True si se pronunció la palabra de activación ('Eder', 'Oye Eder' o 'Hola Eder')."
+            "True si se pronunció la palabra de activación ('Mile', 'Oye Mile' o 'Hola Mile')."
         ),
     )
     matched_hotword: str | None = Field(
@@ -84,12 +92,12 @@ class VoiceCommandAnalysis(BaseModel):
     sleep_requested: bool = Field(
         default=False,
         description=(
-            "True si el usuario pidió cerrar el modo Eder Live ('Gracias Eder', 'Eso es todo')."
+            "True si el usuario pidió cerrar el modo Mile Live ('Gracias Mile', 'Eso es todo')."
         ),
     )
     should_enter_live: bool = Field(
         default=False,
-        description="True si la sesión debe mantenerse en escucha continua (Eder Live).",
+        description="True si la sesión debe mantenerse en escucha continua (Mile Live).",
     )
 
 
@@ -128,7 +136,7 @@ def parse_voice_hotword_command(
             raw_transcript=transcript,
             normalized_transcript=normalized,
             hotword_detected=True,
-            matched_hotword="Eder Live Off",
+            matched_hotword="Mile Live Off",
             clean_query="",
             wake_only=False,
             sleep_requested=True,
@@ -155,7 +163,7 @@ def parse_voice_hotword_command(
             raw_transcript=transcript,
             normalized_transcript=normalized,
             hotword_detected=True,
-            matched_hotword=matched_hw or "Eder Live Off",
+            matched_hotword=matched_hw or "Mile Live Off",
             clean_query="",
             wake_only=False,
             sleep_requested=True,
@@ -175,13 +183,13 @@ def parse_voice_hotword_command(
         )
 
     wake_only = hotword_detected and len(remainder) == 0
-    clean_query = remainder if remainder else ("Hola Eder" if hotword_detected else normalized)
+    clean_query = remainder if remainder else ("Hola Mile" if hotword_detected else normalized)
 
     return VoiceCommandAnalysis(
         raw_transcript=transcript,
         normalized_transcript=normalized,
         hotword_detected=hotword_detected or live_session_active,
-        matched_hotword=matched_hw or ("Eder Live" if live_session_active else None),
+        matched_hotword=matched_hw or ("Mile Live" if live_session_active else None),
         clean_query=clean_query,
         wake_only=wake_only,
         sleep_requested=False,
@@ -205,8 +213,8 @@ def build_tts_speech_summary(markdown_answer: str, *, max_chars: int = 460) -> s
 def describe_voice_capabilities() -> dict[str, Any]:
     """Devuelve la especificación del módulo de voz y hotword para el frontend."""
     return {
-        "hotwords_supported": ["Eder", "Oye Eder", "Hola Eder"],
+        "hotwords_supported": ["Mile", "Oye Mile", "Hola Mile"],
         "default_locale": "es-CO",
-        "phonetic_corrections": ["Eder", "EMCALI", "PQR", "PQRS", "kWh", "Ley 1581", "PSE"],
+        "phonetic_corrections": ["Mile", "EMCALI", "PQR", "PQRS", "kWh", "Ley 1581", "PSE"],
         "tts_enabled": True,
     }

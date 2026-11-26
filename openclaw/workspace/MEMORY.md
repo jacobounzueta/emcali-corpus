@@ -1,4 +1,4 @@
-# MEMORY.md — Memoria Curada de Largo Plazo (EMCALI Eder)
+# MEMORY.md — Memoria Curada de Largo Plazo (Mile — EMCALI)
 
 - **Entidad:** EMCALI E.I.C.E. E.S.P. — NIT `890.399.003-4`, sede principal CAM Torre EMCALI (Av. 2N # 10-70, Cali).
 - **Línea oficial de atención:** `177` (desde Cali) o `(602) 5240177`.

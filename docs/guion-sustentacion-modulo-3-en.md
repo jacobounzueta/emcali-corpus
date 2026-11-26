@@ -10,23 +10,23 @@
 
 ### `0:00 – 1:15` — The Problem & Value Proposition
 - **Hook:** *"EMCALI serves over 790,000 households across Cali and four neighboring municipalities — yet today, citizens face a fragmented website with static PDFs, disconnected news, and no unified way to check neighborhood outages, estimate bills, or file PQRS directly from WhatsApp."*
-- **Our Solution — Eder (Production Agentic Platform):** *"We built **Eder**, a production-grade, dual-role AI platform integrating **all three modules** of this course — a reproducible web corpus, hybrid Qdrant RAG with layered memory, **20 typed Pydantic tools**, a live **Cali Operations Map**, and **OpenClaw + WhatsApp** deployed on Microsoft Azure."*
+- **Our Solution — Mile (Production Agentic Platform):** *"We built **Mile**, a production-grade, dual-role AI platform integrating **all three modules** of this course — a reproducible web corpus, hybrid Qdrant RAG with layered memory, **20 typed Pydantic tools**, a live **Cali Operations Map**, and **OpenClaw + WhatsApp** deployed on Microsoft Azure."*
 
 ### `1:15 – 4:30` — Live Fire Test on an EMCALI Guest's Phone (WhatsApp)
-1. **Guest Query 1 (Tariffs + News/Outages):** Invite an EMCALI guest to text Eder on WhatsApp:
+1. **Guest Query 1 (Tariffs + News/Outages):** Invite an EMCALI guest to text Mile on WhatsApp:
    - *"¿Cuánto cuesta el kWh de energía en estrato 3 y hay mantenimientos activos en San Fernando?"*
-   - Show Eder responding live on WhatsApp with exact deterministic CSV numbers + live scraped maintenance info (zero hallucinations).
+   - Show Mile responding live on WhatsApp with exact deterministic CSV numbers + live scraped maintenance info (zero hallucinations).
 2. **Guest Query 2 (PQRS / Failure Report without being a client):**
    - Guest reports a water failure in *Ciudad Jardín* using their **cédula** (non-client flow) or **contract #** (client flow).
    - Switch screen to `https://172-183-55-204.sslip.io` → **Mapa, PQRS, UMAP & Gestión**: the citizen failure report immediately flags on the **Cali Leaflet Map**!
 3. **RBAC Security Proof (`tools.deny`):**
-   - Guest tries to run a management action (e.g., *"Activa un mantenimiento en Granada"*) → Eder blocks it via **RBAC (`tools.deny`)**.
+   - Guest tries to run a management action (e.g., *"Activa un mantenimiento en Granada"*) → Mile blocks it via **RBAC (`tools.deny`)**.
 
 ### `4:30 – 7:00` — Management Mode & Closed Operational Loop (Commercial Close)
 - Log in to **EMCALI Management Mode** (`rommel` / RBAC Bearer session) on the web app.
 - Show the **Failure Hotspots** panel flagging accumulated citizen reports by `(barrio, service)` for repair team assignment.
-- Click **Despachar Brigada** (or activate a new maintenance point with HITL confirmation) → the pin turns into an official active maintenance on the Cali map.
-- Guest asks Eder on WhatsApp *"¿Hay novedades en Ciudad Jardín?"* → Eder immediately reports the dispatched repair crew and offers subscription to the **OpenClaw Daily Newsletter**.
+- Click **Despachar Brigada** (or activate a new maintenance point with HITL confirmation) → the pin turns into an official active maintenance on the Cali map and triggers a proactive WhatsApp alert!
+- Guest asks Mile on WhatsApp *"¿Hay novedades en Ciudad Jardín?"* → Mile immediately reports the dispatched repair crew and offers subscription to the **OpenClaw Daily Newsletter**.
 - **Commercial Close:** *"From citizen WhatsApp complaint → geospatial hotspot → crew dispatch → proactive WhatsApp alert, all auditable and running live on Azure."*
 
 ---

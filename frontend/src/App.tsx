@@ -262,7 +262,7 @@ export default function App() {
   const [storeMemories, setStoreMemories] = useState<MemoryItem[]>([]);
   const [threadCheckpoints, setThreadCheckpoints] = useState<Array<Record<string, any>>>([]);
 
-  // Voz, Hotword ("Eder" / "Oye Eder" / "Hola Eder") y Modo Continuo "Eder Live" (Gemini Live style)
+  // Voz, Hotword ("Mile" / "Oye Mile" / "Hola Mile") y Modo Continuo "Mile Live" (Gemini Live style)
   const [isListeningMic, setIsListeningMic] = useState<boolean>(false);
   const [hotwordStandby, setHotwordStandby] = useState<boolean>(false);
   const [liveSessionActive, setLiveSessionActive] = useState<boolean>(false);
@@ -273,7 +273,7 @@ export default function App() {
   const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
   const [voiceBanner, setVoiceBanner] = useState<string>("");
   const [simulatedVoiceText, setSimulatedVoiceText] = useState<string>(
-    "Oye Eder, ¿cuántas PQR se atendieron en el tercer trimestre?"
+    "Oye Mile, ¿cuántas PQR se atendieron en el tercer trimestre?"
   );
   const recognitionRef = useRef<any>(null);
   const liveSessionRef = useRef<boolean>(false);
@@ -493,6 +493,7 @@ export default function App() {
 
     // 2. Evitar capturar frases propias del asistente TTS por los altavoces
     const selfPhrases = [
+      "soy mile",
       "soy eder",
       "te escucho en vivo",
       "datos exactos validados",
@@ -510,7 +511,7 @@ export default function App() {
       return true;
     }
 
-    // 3. Superposición léxica con el último TTS pronunciado por Eder
+    // 3. Superposición léxica con el último TTS pronunciado por Mile
     const lastTts = lastSpokenTtsRef.current;
     if (lastTts && clean.length > 10 && lastTts.includes(clean)) {
       return true;
@@ -575,7 +576,7 @@ export default function App() {
       window.speechSynthesis.cancel();
     }
     resumeMicAfterSpeakerOutput(200);
-    setVoiceBanner("✋ Barge-In: Respuesta de voz interrumpida. Eder Live te escucha de nuevo...");
+    setVoiceBanner("✋ Barge-In: Respuesta de voz interrumpida. Mile Live te escucha de nuevo...");
   };
 
   const handleSendQuestion = async (overrideQuestion?: string) => {
@@ -720,45 +721,45 @@ export default function App() {
       if (!data.accepted) {
         resumeMicAfterSpeakerOutput(250);
         setVoiceBanner(
-          `⏸️ Ignorado en espera: di "Eder", "Oye Eder" o "Hola Eder" para activar Eder Live (capturado: "${spokenTranscript}").`
+          `⏸️ Ignorado en espera: di "Mile", "Oye Mile" o "Hola Mile" para activar Mile Live (capturado: "${spokenTranscript}").`
         );
         return;
       }
 
       const analysis = data.voice_analysis;
 
-      // Si el usuario dijo "Gracias Eder" / "Eso es todo" -> vuelve a espera
+      // Si el usuario dijo "Gracias Mile" / "Eso es todo" -> vuelve a espera
       if (analysis.sleep_requested) {
         liveSessionRef.current = false;
         setLiveSessionActive(false);
         setVoiceBanner(
-          '🌙 Eder Live en espera. Cuando me necesites vuelve a decir "Oye Eder" o "Hola Eder".'
+          '🌙 Mile Live en espera. Cuando me necesites vuelve a decir "Oye Mile" o "Hola Mile".'
         );
         speakText(
           data.tts_speech_text ||
-            "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Eder."
+            "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Mile."
         );
         return;
       }
 
-      // ¡Hotword detectado! Entramos o permanecemos en Eder Live (modo Gemini Live)
+      // ¡Hotword detectado! Entramos o permanecemos en Mile Live (modo Gemini Live)
       liveSessionRef.current = true;
       setLiveSessionActive(true);
 
       if (analysis.wake_only) {
         setVoiceBanner(
-          `🟢 Eder Live ACTIVO ("${analysis.matched_hotword}"). Habla libremente cuando Eder termine de saludarte (di "Gracias Eder" para salir).`
+          `🟢 Mile Live ACTIVO ("${analysis.matched_hotword}"). Habla libremente cuando Mile termine de saludarte (di "Gracias Mile" para salir).`
         );
         speakText(
           data.tts_speech_text ||
-            "¡Hola! Soy Eder Live. Te escucho en vivo, dime qué necesitas de EMCALI."
+            "¡Hola! Soy Mile Live. Te escucho en vivo, dime qué necesitas de EMCALI."
         );
         return;
       }
 
       const turn: TurnPayload = data.turn;
       setVoiceBanner(
-        `🟢 Eder Live (${analysis.matched_hotword || "Continuo"}) → "${analysis.clean_query}" · Micrófono silenciado mientras Eder habla para evitar eco`
+        `🟢 Mile Live (${analysis.matched_hotword || "Continuo"}) → "${analysis.clean_query}" · Micrófono silenciado mientras Mile habla para evitar eco`
       );
       setLastTurn(turn);
       setMessages((prev) => [
@@ -766,7 +767,7 @@ export default function App() {
         {
           role: "user",
           content: turn.question,
-          voiceHotword: analysis.matched_hotword || "Eder Live",
+          voiceHotword: analysis.matched_hotword || "Mile Live",
         },
         {
           role: "assistant",
@@ -791,7 +792,7 @@ export default function App() {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
       setVoiceBanner(
-        "ℹ️ Tu navegador actual no expone Web Speech API nativa; usa el simulador de Eder Live integrado aquí al lado."
+        "ℹ️ Tu navegador actual no expone Web Speech API nativa; usa el simulador de Mile Live integrado aquí al lado."
       );
       return;
     }
@@ -808,7 +809,7 @@ export default function App() {
       setLiveSessionActive(false);
       setLiveActivity("idle");
       setInterimTranscript("");
-      setVoiceBanner("🛑 Micrófono y sesión Eder Live detenidos.");
+      setVoiceBanner("🛑 Micrófono y sesión Mile Live detenidos.");
       return;
     }
 
@@ -824,13 +825,13 @@ export default function App() {
       setLiveActivity(liveSessionRef.current ? "listening" : "standby");
       setVoiceBanner(
         liveSessionRef.current
-          ? '🟢 Eder Live escuchando en vivo... Habla con naturalidad (o di "Gracias Eder" para pausar)'
-          : '🎧 Standby: di "Eder", "Oye Eder" o "Hola Eder" para despertar el modo Eder Live'
+          ? '🟢 Mile Live escuchando en vivo... Habla con naturalidad (o di "Gracias Mile" para pausar)'
+          : '🎧 Standby: di "Mile", "Oye Mile" o "Hola Mile" para despertar el modo Mile Live'
       );
     };
 
     rec.onresult = (event: any) => {
-      // Bloqueo Half-Duplex: ignorar cualquier audio mientras Eder piensa, habla por TTS o está en ventana de eco
+      // Bloqueo Half-Duplex: ignorar cualquier audio mientras Mile piensa, habla por TTS o está en ventana de eco
       if (
         isTtsSpeakingRef.current ||
         isProcessingVoiceRef.current ||
@@ -870,7 +871,7 @@ export default function App() {
     };
 
     rec.onend = () => {
-      // No auto-reiniciar el micrófono mientras Eder está hablando por los altavoces (se reanuda en utter.onend)
+      // No auto-reiniciar el micrófono mientras Mile está hablando por los altavoces (se reanuda en utter.onend)
       if (isTtsSpeakingRef.current || isProcessingVoiceRef.current) {
         return;
       }
@@ -985,8 +986,8 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center border border-white/25 overflow-visible">
               <img
-                src="/eder-avatar.jpg"
-                alt="Eder caricatura"
+                src="/mile-avatar.jpg"
+                alt="Mile, asistente virtual de EMCALI"
                 className="h-10 w-10 rounded-full object-cover shadow-md border-2 border-emerald-300"
               />
             </div>
@@ -996,7 +997,7 @@ export default function App() {
                   EMCALI E.I.C.E. E.S.P.
                 </h1>
                 <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/15 text-emerald-200 border border-white/20">
-                  Eder · Asistente Virtual
+                  Mile · Asistente Virtual
                 </span>
                 <button
                   onClick={() => setActiveTab("ops")}
@@ -1120,7 +1121,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Barra de Voz "Eder Live" estilo producto */}
+          {/* Barra de Voz "Mile Live" estilo producto */}
           <div
             className={`p-3 rounded-2xl border transition-all flex flex-wrap items-center justify-between gap-2.5 shadow-xs ${
               liveSessionActive
@@ -1146,10 +1147,10 @@ export default function App() {
                 )}
                 <span>
                   {liveSessionActive
-                    ? "🟢 Eder Live Activo (Pausar)"
+                    ? "🟢 Mile Live Activo (Pausar)"
                     : isListeningMic && hotwordStandby
-                    ? 'Escuchando "Oye Eder"...'
-                    : 'Hablar con Eder ("Oye Eder")'}
+                    ? 'Escuchando "Oye Mile"...'
+                    : 'Hablar con Mile ("Oye Mile")'}
                 </span>
               </button>
 
@@ -1161,9 +1162,9 @@ export default function App() {
                   </span>
                   <span className="text-[#006b47]">
                     {liveActivity === "thinking"
-                      ? "Eder consultando..."
+                      ? "Mile consultando..."
                       : liveActivity === "speaking"
-                      ? "🔊 Eder respondiendo"
+                      ? "🔊 Mile respondiendo"
                       : "🎙️ Te escucho en vivo"}
                   </span>
                 </div>
@@ -1203,8 +1204,8 @@ export default function App() {
                 onChange={(e) => setSimulatedVoiceText(e.target.value)}
                 placeholder={
                   liveSessionActive
-                    ? 'Eder Live activo: escribe o habla tu pregunta (o "Gracias Eder")'
-                    : 'Ej: "Oye Eder, ¿cuál es la tarifa en estrato 3?"'
+                    ? 'Mile Live activo: escribe o habla tu pregunta (o "Gracias Mile")'
+                    : 'Ej: "Oye Mile, ¿cuál es la tarifa en estrato 3?"'
                 }
                 className="flex-1 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-[#00875A]"
               />
@@ -1237,12 +1238,12 @@ export default function App() {
                   <Bot className="w-8 h-8 text-[#003B71]" />
                 </div>
                 <h2 className="text-base font-bold text-[#003B71]">
-                  ¡Hola! Soy Eder, tu asistente virtual de EMCALI
+                  ¡Hola! Soy Mile, tu asistente virtual de EMCALI
                 </h2>
                 <p className="text-xs max-w-md mt-1.5 text-slate-600 leading-relaxed">
                   Pregúntame sobre tarifas de energía, acueducto, telecomunicaciones, medios de pago,
                   solicitudes PQR o políticas institucionales. También puedes decir{" "}
-                  <strong>"Oye Eder"</strong> para conversar por voz.
+                  <strong>"Oye Mile"</strong> para conversar por voz.
                 </p>
               </div>
             ) : (
@@ -1259,8 +1260,8 @@ export default function App() {
                     {msg.role === "assistant" && (
                       <div className="shrink-0 w-10 h-10 flex items-center justify-center mt-1">
                         <img
-                          src="/eder-avatar.jpg"
-                          alt="Eder"
+                          src="/mile-avatar.jpg"
+                          alt="Mile"
                           className={`w-8 h-8 rounded-full object-cover border-2 ${
                             isLastStreamingAssistant
                               ? "border-[#00875A] shadow-md eder-orbit"
@@ -1283,7 +1284,7 @@ export default function App() {
                       )}
                       {isLastStreamingAssistant && !msg.content ? (
                         <span className="text-slate-500 italic">
-                          Eder está generando la respuesta...
+                          Mile está generando la respuesta...
                         </span>
                       ) : msg.role === "assistant" ? (
                         renderMarkdownContent(msg.content)
@@ -1309,7 +1310,7 @@ export default function App() {
             <input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Escribe tu consulta para Eder (ej. tarifas de energía, PQR, medios de pago, Ley 1581)..."
+              placeholder="Escribe tu consulta para Mile (ej. tarifas de energía, PQR, medios de pago, Ley 1581)..."
               className="flex-1 px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs sm:text-sm text-slate-900 shadow-xs focus:outline-none focus:border-[#00875A]"
             />
             <button

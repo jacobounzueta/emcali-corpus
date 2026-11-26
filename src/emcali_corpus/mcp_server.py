@@ -21,7 +21,7 @@ load_dotenv()
 mcp = MCPServer(
     "emcali-eder-mcp",
     instructions=(
-        "Servidor MCP oficial del Agente Eder de EMCALI E.I.C.E. E.S.P. "
+        "Servidor MCP oficial de Mile, asistente virtual de EMCALI E.I.C.E. E.S.P. "
         "Expone 20 herramientas tipadas con Pydantic v2, RBAC (citizen vs. manager), "
         "HITL para acciones sensibles, mapa de Cali y RAG híbrido sobre Qdrant."
     ),
