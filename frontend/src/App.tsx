@@ -8,11 +8,19 @@ import {
   Cpu,
   Database,
   FileSpreadsheet,
+  FileText,
   GitBranch,
   History,
   Layers,
+  LogOut,
+  MapPin,
+  Maximize2,
+  Menu,
+  MessageCircle,
   Mic,
   MicOff,
+  Minimize2,
+  Newspaper,
   PlusCircle,
   RefreshCw,
   Route,
@@ -24,13 +32,16 @@ import {
   User,
   Volume2,
   VolumeX,
+  X,
 } from "lucide-react";
 import type {
   DemoPreset,
   MemoryItem,
   TurnPayload,
 } from "./types";
-import { M3OperationsSuite } from "./components/M3OperationsSuite";
+import { M3OperationsSuite, type M3Section } from "./components/M3OperationsSuite";
+
+type PortalSection = M3Section | "xray" | "eval" | "arch";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -162,7 +173,11 @@ function renderMarkdownContent(content: string): React.ReactNode {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"chat" | "ops" | "xray" | "eval" | "arch">("chat");
+  const [activeSection, setActiveSection] = useState<PortalSection>("map_reports");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [mileDrawerOpen, setMileDrawerOpen] = useState<boolean>(false);
+  const [mileDrawerExpanded, setMileDrawerExpanded] = useState<boolean>(false);
+
   const getOrCreateAnonId = (): string => {
     let anon = localStorage.getItem("emcali_anon_id");
     if (!anon) {
@@ -172,7 +187,13 @@ export default function App() {
     return anon;
   };
 
-  const resolveActiveUserIdentity = (): { uid: string; tid: string; role: "citizen" | "manager" } => {
+  const resolveActiveUserIdentity = (): {
+    uid: string;
+    tid: string;
+    role: "citizen" | "manager";
+    authenticated: boolean;
+    displayName: string;
+  } => {
     try {
       const saved = localStorage.getItem("emcali_auth_session");
       if (saved) {
@@ -183,6 +204,8 @@ export default function App() {
             uid: uname,
             tid: `user-${uname}-chat`,
             role: parsed.role === "manager" ? "manager" : "citizen",
+            authenticated: true,
+            displayName: String(parsed.display_name || parsed.username),
           };
         }
       }
@@ -190,11 +213,19 @@ export default function App() {
       // ignore
     }
     const anon = getOrCreateAnonId();
-    return { uid: anon, tid: `${anon}-chat`, role: "citizen" };
+    return {
+      uid: anon,
+      tid: `${anon}-chat`,
+      role: "citizen",
+      authenticated: false,
+      displayName: "Ciudadano",
+    };
   };
 
   const initialIdentity = resolveActiveUserIdentity();
   const [authRole, setAuthRole] = useState<"citizen" | "manager">(initialIdentity.role);
+  const [authAuthenticated, setAuthAuthenticated] = useState<boolean>(initialIdentity.authenticated);
+  const [authDisplayName, setAuthDisplayName] = useState<string>(initialIdentity.displayName);
   const [health, setHealth] = useState<Record<string, any> | null>(null);
   const [presets, setPresets] = useState<DemoPreset[]>([]);
   const [threadId, setThreadId] = useState<string>(initialIdentity.tid);
@@ -245,8 +276,13 @@ export default function App() {
     const syncAuth = () => {
       const next = resolveActiveUserIdentity();
       setAuthRole(next.role);
+      setAuthAuthenticated(next.authenticated);
+      setAuthDisplayName(next.displayName);
       setUserId(next.uid);
       setThreadId(next.tid);
+      if (next.role !== "manager") {
+        setActiveSection((cur) => (cur === "iam" ? "map_reports" : cur));
+      }
       loadPersonalChatHistory(next.uid);
     };
     window.addEventListener("emcali-auth-changed", syncAuth);
@@ -288,15 +324,14 @@ export default function App() {
   const scrollToChatBottom = () => {
     window.requestAnimationFrame(() => {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
     });
   };
 
   useEffect(() => {
-    if (activeTab === "chat" && messages.length > 0) {
+    if (mileDrawerOpen && messages.length > 0) {
       scrollToChatBottom();
     }
-  }, [messages, isStreaming, activeTab]);
+  }, [messages, isStreaming, mileDrawerOpen]);
 
   // Evaluación Retrieval y Tablas
   const [evalData, setEvalData] = useState<Record<string, any> | null>(null);
@@ -997,10 +1032,31 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (activeTab === "eval" || activeTab === "arch") {
+    if (activeSection === "eval" || activeSection === "arch") {
       loadEvaluationMetrics();
     }
-  }, [activeTab]);
+  }, [activeSection]);
+
+  const handleTopBarLogout = () => {
+    localStorage.removeItem("emcali_auth_session");
+    window.dispatchEvent(new Event("emcali-auth-changed"));
+    if (activeSection === "iam") {
+      setActiveSection("map_reports");
+    }
+  };
+
+  const navigateToSection = (section: PortalSection) => {
+    setActiveSection(section);
+    setMobileSidebarOpen(false);
+  };
+
+  const isM3Section = (sec: PortalSection): sec is M3Section =>
+    sec === "map_reports" ||
+    sec === "pqrs" ||
+    sec === "news" ||
+    sec === "umap_tools" ||
+    sec === "iam" ||
+    sec === "auth";
 
   const routeBadgeColor = (choice?: string) => {
     switch (choice) {
@@ -1040,120 +1096,238 @@ export default function App() {
     },
   ];
 
+  const sidebarItemClass = (id: PortalSection) =>
+    `w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer text-left ${
+      activeSection === id
+        ? "bg-[#EEF6E6] text-[#2D5211] border border-[#CDE3B4] shadow-xs"
+        : "text-[#1E293B] border border-transparent hover:bg-[#F3F6F1] hover:text-[#477D1C]"
+    }`;
+
+  const renderSidebarNav = () => (
+    <div className="flex flex-col h-full justify-between gap-6">
+      <div className="space-y-5">
+        {/* GENERAL (Ciudadanía) */}
+        <div className="space-y-1">
+          <div className="px-3.5 text-[10px] font-extrabold uppercase tracking-widest text-[#5B6757]">
+            General · Ciudadanía
+          </div>
+          <button
+            onClick={() => navigateToSection("map_reports")}
+            className={sidebarItemClass("map_reports")}
+          >
+            <MapPin className="w-4 h-4 shrink-0 text-[#579624]" />
+            <span>Mapa y Reportes</span>
+          </button>
+          <button
+            onClick={() => navigateToSection("pqrs")}
+            className={sidebarItemClass("pqrs")}
+          >
+            <FileText className="w-4 h-4 shrink-0 text-[#579624]" />
+            <span>PQRS</span>
+          </button>
+          <button
+            onClick={() => navigateToSection("news")}
+            className={sidebarItemClass("news")}
+          >
+            <Newspaper className="w-4 h-4 shrink-0 text-[#579624]" />
+            <span>Noticias y Boletín</span>
+          </button>
+        </div>
+
+        {/* GESTIÓN EMCALI (Solo Manager) */}
+        {authRole === "manager" && (
+          <div className="space-y-1 pt-3 border-t border-[#E7EDE3]">
+            <div className="px-3.5 text-[10px] font-extrabold uppercase tracking-widest text-[#B45309]">
+              Gestión EMCALI
+            </div>
+            <button
+              onClick={() => navigateToSection("iam")}
+              className={sidebarItemClass("iam")}
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0 text-[#F5820D]" />
+              <span>IAM y WhatsApp Allowlist</span>
+            </button>
+          </div>
+        )}
+
+        {/* ACADÉMICO (TAAML) */}
+        <div className="space-y-1 pt-3 border-t border-[#E7EDE3]">
+          <div className="px-3.5 text-[10px] font-extrabold uppercase tracking-widest text-[#5B6757]">
+            Académico (TAAML)
+          </div>
+          <button
+            onClick={() => navigateToSection("xray")}
+            className={sidebarItemClass("xray")}
+          >
+            <Activity className="w-4 h-4 shrink-0 text-[#477D1C]" />
+            <span>Rayos-X (Jev y Memoria)</span>
+          </button>
+          <button
+            onClick={() => navigateToSection("umap_tools")}
+            className={sidebarItemClass("umap_tools")}
+          >
+            <Sparkles className="w-4 h-4 shrink-0 text-[#477D1C]" />
+            <span>UMAP y 20 Tools</span>
+          </button>
+          <button
+            onClick={() => navigateToSection("eval")}
+            className={sidebarItemClass("eval")}
+          >
+            <Database className="w-4 h-4 shrink-0 text-[#477D1C]" />
+            <span>Evaluación Retrieval</span>
+          </button>
+          <button
+            onClick={() => navigateToSection("arch")}
+            className={sidebarItemClass("arch")}
+          >
+            <Cpu className="w-4 h-4 shrink-0 text-[#477D1C]" />
+            <span>Arquitectura</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tarjeta sutil de acceso directo a Mile en el pie del sidebar */}
+      <div className="p-3.5 rounded-2xl bg-[#EEF6E6] border border-[#CDE3B4] space-y-2">
+        <div className="flex items-center gap-2">
+          <img
+            src="/mile-avatar.jpg"
+            alt="Mile"
+            className="w-8 h-8 rounded-full object-cover border-2 border-[#579624] shrink-0"
+          />
+          <div className="min-w-0">
+            <div className="text-xs font-extrabold text-[#141B12] truncate">Mile · Asistente IA</div>
+            <div className="text-[10px] text-[#2D5211] font-medium">Voz en vivo &amp; WhatsApp</div>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setMileDrawerOpen(true);
+            setMobileSidebarOpen(false);
+          }}
+          className="w-full py-1.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-[11px] font-bold transition cursor-pointer"
+        >
+          Abrir chat con Mile
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#F3F6F1] text-[#141B12] flex flex-col">
       {/* Header Institucional EMCALI 2026 — ¡Siempre Juntos! */}
       <header className="bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-[0_2px_12px_rgba(20,27,18,0.04)]">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 pt-3 pb-2.5 flex flex-wrap items-center justify-between gap-3">
-          {/* Brand Lockup EMCALI ¡Siempre Juntos! + Mile (Static Avatar) */}
+        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 pt-3 pb-2.5 flex items-center justify-between gap-3">
+          {/* Izquierda: Menú móvil + Brand Lockup EMCALI ¡Siempre Juntos! + Static Mile Avatar */}
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-[#EEF6E6] flex items-center justify-center border border-[#CDE3B4] shrink-0">
-              <img
-                src="/mile-avatar.jpg"
-                alt="Mile, asistente virtual de EMCALI"
-                className="h-9 w-9 rounded-full object-cover shadow-xs border-2 border-[#579624]"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex flex-col leading-none">
-                  <h1 className="font-extrabold text-lg sm:text-xl tracking-tight text-[#141B12] leading-none">
-                    EMCALI
-                  </h1>
-                  <span className="text-[11px] font-bold text-[#579624] tracking-tight mt-0.5">
-                    ¡Siempre Juntos!
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen((v) => !v)}
+              className="lg:hidden p-2 rounded-xl border border-[#DDE5D7] bg-[#F7FAF4] text-[#141B12] hover:bg-[#EEF6E6] cursor-pointer"
+              aria-label="Abrir menú de navegación"
+            >
+              {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateToSection("map_reports")}
+              className="flex items-center gap-3 text-left cursor-pointer"
+            >
+              <div className="h-10 w-10 rounded-full bg-[#EEF6E6] flex items-center justify-center border border-[#CDE3B4] shrink-0">
+                <img
+                  src="/mile-avatar.jpg"
+                  alt="Mile, asistente virtual de EMCALI"
+                  className="h-8 w-8 rounded-full object-cover shadow-xs border-2 border-[#579624]"
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col leading-none">
+                    <h1 className="font-extrabold text-lg sm:text-xl tracking-tight text-[#141B12] leading-none">
+                      EMCALI
+                    </h1>
+                    <span className="text-[11px] font-bold text-[#579624] tracking-tight mt-0.5">
+                      ¡Siempre Juntos!
+                    </span>
+                  </div>
+                  <span className="hidden sm:inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#EEF6E6] text-[#2D5211] border border-[#CDE3B4]">
+                    Portal Digital 2026
                   </span>
                 </div>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#EEF6E6] text-[#2D5211] border border-[#CDE3B4]">
-                  Mile · Asistente Virtual
-                </span>
+                <p className="text-[11px] text-[#5B6757] hidden md:block mt-0.5">
+                  Energía · Acueducto y Alcantarillado · Telecomunicaciones · Atención Ciudadana
+                </p>
               </div>
-              <p className="text-[11px] text-[#5B6757] hidden sm:block mt-0.5">
-                Energía · Acueducto y Alcantarillado · Telecomunicaciones · Atención Ciudadana
-              </p>
-            </div>
+            </button>
           </div>
 
-          {/* Navegación: Pill Tabs EMCALI 2026 */}
-          <nav className="flex flex-wrap items-center gap-1.5">
-            <button
-              onClick={() => setActiveTab("chat")}
-              className={`px-3.5 py-1.5 rounded-full text-xs transition cursor-pointer border ${
-                activeTab === "chat"
-                  ? "border-[#579624] bg-[#EEF6E6] text-[#477D1C] font-bold shadow-xs"
-                  : "border-transparent text-[#1E293B] hover:text-[#477D1C] hover:bg-[#F3F6F1] font-semibold"
-              }`}
-            >
-              Atención Ciudadana
-            </button>
-            <button
-              onClick={() => setActiveTab("ops")}
-              className={`px-3.5 py-1.5 rounded-full text-xs transition cursor-pointer border ${
-                activeTab === "ops"
-                  ? "border-[#579624] bg-[#EEF6E6] text-[#477D1C] font-bold shadow-xs"
-                  : "border-transparent text-[#1E293B] hover:text-[#477D1C] hover:bg-[#F3F6F1] font-semibold"
-              }`}
-            >
-              Mapa, PQRS y Gestión
-            </button>
-            <button
-              onClick={() => setActiveTab("xray")}
-              className={`px-3.5 py-1.5 rounded-full text-xs transition cursor-pointer border ${
-                activeTab === "xray"
-                  ? "border-[#579624] bg-[#EEF6E6] text-[#477D1C] font-bold shadow-xs"
-                  : "border-transparent text-[#1E293B] hover:text-[#477D1C] hover:bg-[#F3F6F1] font-semibold"
-              }`}
-            >
-              Rayos-X
-            </button>
-            <button
-              onClick={() => setActiveTab("eval")}
-              className={`px-3.5 py-1.5 rounded-full text-xs transition cursor-pointer border ${
-                activeTab === "eval"
-                  ? "border-[#579624] bg-[#EEF6E6] text-[#477D1C] font-bold shadow-xs"
-                  : "border-transparent text-[#1E293B] hover:text-[#477D1C] hover:bg-[#F3F6F1] font-semibold"
-              }`}
-            >
-              Evaluación
-            </button>
-            <button
-              onClick={() => setActiveTab("arch")}
-              className={`px-3.5 py-1.5 rounded-full text-xs transition cursor-pointer border ${
-                activeTab === "arch"
-                  ? "border-[#579624] bg-[#EEF6E6] text-[#477D1C] font-bold shadow-xs"
-                  : "border-transparent text-[#1E293B] hover:text-[#477D1C] hover:bg-[#F3F6F1] font-semibold"
-              }`}
-            >
-              Arquitectura
-            </button>
-          </nav>
-
-          {/* CTAs Sólidos EMCALI 2026 (Verde Hoja + Naranja Acción) */}
+          {/* Derecha: Botón sutil Hablar con Mile + Reportar Falla + Mi cuenta / Sesión */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setActiveTab("ops")}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1.5 ${
-                authRole === "manager"
-                  ? "bg-[#FACC15] hover:bg-[#F5C400] text-[#141B12]"
-                  : "bg-[#579624] hover:bg-[#477D1C] text-white"
+              type="button"
+              onClick={() => setMileDrawerOpen((v) => !v)}
+              className={`px-3.5 py-2 rounded-full text-xs font-bold border transition cursor-pointer flex items-center gap-1.5 ${
+                mileDrawerOpen
+                  ? "bg-[#2D5211] text-white border-[#2D5211]"
+                  : "bg-[#EEF6E6] hover:bg-[#E1F0D3] text-[#2D5211] border-[#CDE3B4]"
               }`}
-              title="Abrir panel de cuenta, roles RBAC y operaciones"
+              title="Abrir o cerrar el asistente virtual Mile"
             >
-              <span>{authRole === "manager" ? "Gestión EMCALI (20)" : "Mi cuenta"}</span>
-              <span aria-hidden="true">↗</span>
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Hablar con Mile</span>
             </button>
+
             <button
-              onClick={() => setActiveTab("ops")}
-              className="px-4 py-2 rounded-full bg-[#F5820D] hover:bg-[#DC7006] text-white text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1.5"
-              title="Ir a Mapa de Mantenimientos, PQRS y Reporte de Fallas"
+              type="button"
+              onClick={() => navigateToSection("map_reports")}
+              className="hidden sm:flex px-4 py-2 rounded-full bg-[#F5820D] hover:bg-[#DC7006] text-white text-xs font-bold transition cursor-pointer shadow-xs items-center gap-1.5"
+              title="Reportar una falla o ver mantenimientos en el mapa"
             >
-              <span>Reportar / PQRS</span>
+              <span>Reportar Falla</span>
               <span aria-hidden="true">↗</span>
             </button>
+
+            {authAuthenticated ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => navigateToSection(authRole === "manager" ? "iam" : "auth")}
+                  className={`px-3.5 py-2 rounded-full text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1.5 ${
+                    authRole === "manager"
+                      ? "bg-[#FACC15] hover:bg-[#F5C400] text-[#141B12]"
+                      : "bg-[#579624] hover:bg-[#477D1C] text-white"
+                  }`}
+                  title={authDisplayName}
+                >
+                  <span>
+                    {authRole === "manager" ? "Gestión EMCALI" : authDisplayName.split(" ")[0]}
+                  </span>
+                  <span aria-hidden="true">↗</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTopBarLogout}
+                  className="p-2 rounded-full bg-[#F3F6F1] hover:bg-rose-50 border border-[#DDE5D7] hover:border-rose-300 text-[#1E293B] hover:text-rose-700 transition cursor-pointer"
+                  title="Cerrar sesión"
+                  aria-label="Cerrar sesión"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigateToSection("auth")}
+                className="px-4 py-2 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                title="Iniciar sesión o crear cuenta ciudadana"
+              >
+                <span>Mi cuenta</span>
+                <span aria-hidden="true">↗</span>
+              </button>
+            )}
           </div>
         </div>
         {/* Franja verde salvia característica del portal EMCALI 2026 */}
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 pb-2">
+        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 pb-2">
           <div className="h-1.5 w-full rounded-full bg-[#DCECC9]" />
         </div>
       </header>
@@ -1173,278 +1347,48 @@ export default function App() {
         </div>
       )}
 
-      {/* VISTA M3: MAPA CALI, PQRS, FALLAS, NOTICIAS, UMAP Y GESTIÓN RBAC */}
-      {activeTab === "ops" && <M3OperationsSuite />}
-
-      {/* VISTA 1: PRODUCTO CIUDADANO EMCALI (LIMPIO, SIN JERGAS ACADÉMICAS) */}
-      {activeTab === "chat" && (
-        <main className="max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col gap-4">
-          {/* Encabezado Editorial EMCALI 2026 + Acciones de Conversación */}
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <div className="text-xs font-semibold text-[#477D1C]">
-                {authRole === "manager"
-                  ? "Modo Chatbot Gerencial EMCALI · 20 herramientas activas"
-                  : "Atención Ciudadana Digital · Sincronizado con WhatsApp"}
-              </div>
-              <div className="w-10 h-0.5 bg-[#579624] rounded-full my-1.5" />
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#141B12]">
-                Conversa con Mile
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleClearChat}
-                disabled={messages.length === 0 || isStreaming}
-                className="px-3.5 py-2 rounded-full bg-white hover:bg-rose-50 border border-[#DDE5D7] hover:border-rose-300 text-[#1E293B] hover:text-rose-700 text-xs font-semibold flex items-center gap-1.5 shadow-[0_2px_8px_rgba(20,27,18,0.04)] transition cursor-pointer disabled:opacity-40"
-                title="Limpiar los mensajes visibles en el chat"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                <span>Limpiar chat</span>
-              </button>
-              <button
-                onClick={handleCreateNewThread}
-                className="px-3.5 py-2 rounded-full bg-white hover:bg-[#EEF6E6] border border-[#DDE5D7] hover:border-[#579624] text-[#141B12] hover:text-[#2D5211] text-xs font-semibold flex items-center gap-1.5 shadow-[0_2px_8px_rgba(20,27,18,0.04)] transition cursor-pointer"
-                title="Iniciar una nueva conversación"
-              >
-                <PlusCircle className="w-3.5 h-3.5 text-[#579624]" />
-                <span>Nueva conversación</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Barra de Voz "Mile Live" estilo producto */}
+      {/* Drawer de Sidebar en Móvil */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden flex">
           <div
-            className={`p-3.5 rounded-2xl border transition-all flex flex-wrap items-center justify-between gap-2.5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] ${
-              liveSessionActive
-                ? "bg-[#EEF6E6] border-[#579624]/60"
-                : "bg-white border-[#DDE5D7]"
-            }`}
-          >
-            <div className="flex flex-wrap items-center gap-2">
+            className="fixed inset-0 bg-[#141B12]/40 backdrop-blur-xs"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <aside className="relative w-72 max-w-[85vw] bg-white h-full p-4 shadow-2xl border-r border-[#DDE5D7] overflow-y-auto z-50">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E7EDE3]">
+              <span className="font-extrabold text-sm text-[#141B12]">Navegación EMCALI</span>
               <button
-                onClick={() => toggleBrowserMicrophone(true)}
-                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
-                  liveSessionActive
-                    ? "bg-[#579624] text-white border-[#477D1C] shadow-xs"
-                    : isListeningMic && hotwordStandby
-                    ? "bg-[#141B12] text-white border-[#141B12] animate-pulse"
-                    : "bg-[#EEF6E6] hover:bg-[#E1F0D3] text-[#2D5211] border-[#CDE3B4]"
-                }`}
+                onClick={() => setMobileSidebarOpen(false)}
+                className="p-1.5 rounded-full hover:bg-[#F3F6F1] text-[#5B6757] cursor-pointer"
               >
-                {isListeningMic ? (
-                  <MicOff className="w-3.5 h-3.5" />
-                ) : (
-                  <Mic className="w-3.5 h-3.5" />
-                )}
-                <span>
-                  {liveSessionActive
-                    ? "🟢 Mile Live Activo (Pausar)"
-                    : isListeningMic && hotwordStandby
-                    ? 'Escuchando "Oye Mile"...'
-                    : 'Hablar con Mile ("Oye Mile")'}
-                </span>
-              </button>
-
-              {liveSessionActive && (
-                <div className="px-3 py-1 rounded-full bg-white border border-[#CDE3B4] flex items-center gap-2 text-[11px] font-bold">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#579624] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#579624]"></span>
-                  </span>
-                  <span className="text-[#2D5211]">
-                    {liveActivity === "thinking"
-                      ? "Mile consultando..."
-                      : liveActivity === "speaking"
-                      ? "🔊 Mile respondiendo"
-                      : "🎙️ Te escucho en vivo"}
-                  </span>
-                </div>
-              )}
-
-              {liveActivity === "speaking" && (
-                <button
-                  onClick={interruptSpeechBargeIn}
-                  className="px-3 py-1.5 rounded-full bg-[#FFF4E8] hover:bg-orange-100 border border-[#F5820D]/40 text-[#B45309] text-xs font-bold cursor-pointer"
-                >
-                  ✋ Interrumpir
-                </button>
-              )}
-
-              <button
-                onClick={() => setTtsEnabled((v) => !v)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 transition cursor-pointer ${
-                  ttsEnabled
-                    ? "bg-[#EEF6E6] text-[#2D5211] border-[#CDE3B4]"
-                    : "bg-[#F3F6F1] text-slate-500 border-[#DDE5D7]"
-                }`}
-                title="Activar/Desactivar respuesta por voz"
-              >
-                {ttsEnabled ? (
-                  <Volume2 className="w-3.5 h-3.5" />
-                ) : (
-                  <VolumeX className="w-3.5 h-3.5" />
-                )}
-                <span>Voz {ttsEnabled ? "ON" : "OFF"}</span>
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Probador rápido de voz */}
-            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-              <input
-                value={simulatedVoiceText}
-                onChange={(e) => setSimulatedVoiceText(e.target.value)}
-                placeholder={
-                  liveSessionActive
-                    ? 'Mile Live activo: escribe o habla tu pregunta (o "Gracias Mile")'
-                    : 'Ej: "Oye Mile, ¿cuál es la tarifa en estrato 3?"'
-                }
-                className="flex-1 px-3.5 py-2 rounded-full bg-[#F7FAF4] border border-[#DDE5D7] text-xs text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-              />
-              <button
-                onClick={() => handleVoiceCommandSubmit(simulatedVoiceText, true, true)}
-                className="px-4 py-2 rounded-full bg-[#141B12] hover:bg-[#283324] text-white text-xs font-bold shrink-0 transition cursor-pointer"
-              >
-                {liveSessionActive ? "Enviar Voz" : "Probar Voz"}
-              </button>
-            </div>
-
-            {interimTranscript && (
-              <div className="w-full text-xs text-[#2D5211] font-medium bg-[#EEF6E6] px-3.5 py-2 rounded-xl border border-[#CDE3B4]">
-                🎙️ Escuchando: <em>"{interimTranscript}..."</em>
-              </div>
-            )}
-
-            {voiceBanner && (
-              <div className="w-full text-[11px] text-[#475569] font-medium px-1">
-                {voiceBanner}
-              </div>
-            )}
-          </div>
-
-          {/* Ventana Principal de Conversación */}
-          <div className="flex-1 min-h-[430px] max-h-[580px] overflow-y-auto p-5 sm:p-6 rounded-3xl bg-white border border-[#DDE5D7] shadow-[0_2px_16px_rgba(20,27,18,0.05)] space-y-4">
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-12 text-[#5B6757]">
-                <div className="h-16 w-16 rounded-2xl bg-[#EEF6E6] border border-[#CDE3B4] flex items-center justify-center mb-3.5 shadow-xs">
-                  <Bot className="w-8 h-8 text-[#579624]" />
-                </div>
-                <span className="px-3 py-1 rounded-full bg-[#FACC15] text-[#1E293B] text-[11px] font-extrabold tracking-tight mb-2.5">
-                  EMCALI ¡Siempre Juntos! · Atención 24/7
-                </span>
-                <h2 className="text-lg font-extrabold tracking-tight text-[#141B12]">
-                  ¡Hola! Soy Mile, tu asistente virtual de EMCALI
-                </h2>
-                <p className="text-xs sm:text-sm max-w-md mt-1.5 text-[#5B6757] leading-relaxed">
-                  Pregúntame sobre tarifas de energía, acueducto, telecomunicaciones, medios de pago,
-                  solicitudes PQR o políticas institucionales. También puedes decir{" "}
-                  <strong className="text-[#141B12]">"Oye Mile"</strong> para conversar por voz.
-                </p>
-              </div>
-            ) : (
-              messages.map((msg, i) => {
-                const isLastStreamingAssistant =
-                  msg.role === "assistant" && isStreaming && i === messages.length - 1;
-                return (
-                  <div
-                    key={i}
-                    className={`flex items-start gap-2.5 ${
-                      msg.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {msg.role === "assistant" && (
-                      <div className="shrink-0 w-10 h-10 flex items-center justify-center mt-1">
-                        <img
-                          src="/mile-avatar.jpg"
-                          alt="Mile"
-                          className={`w-8 h-8 rounded-full object-cover border-2 ${
-                            isLastStreamingAssistant
-                              ? "border-[#579624] shadow-md eder-orbit"
-                              : "border-[#CDE3B4]"
-                          }`}
-                        />
-                      </div>
-                    )}
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs sm:text-[13.5px] leading-relaxed shadow-xs ${
-                        msg.role === "user"
-                          ? "bg-[#579624] text-white rounded-tr-sm whitespace-pre-wrap"
-                          : "bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] rounded-tl-sm"
-                      }`}
-                    >
-                      {msg.voiceHotword && (
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#EEF6E6] mb-1">
-                          🎙️ {msg.voiceHotword}
-                        </div>
-                      )}
-                      {isLastStreamingAssistant && !msg.content ? (
-                        <span className="text-[#5B6757] italic">
-                          Mile está generando la respuesta...
-                        </span>
-                      ) : msg.role === "assistant" ? (
-                        renderMarkdownContent(msg.content)
-                      ) : (
-                        msg.content
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Barra de Envío */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendQuestion();
-            }}
-            className="flex gap-2.5"
-          >
-            <input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Escribe tu consulta para Mile (ej. tarifas de energía, PQR, medios de pago, Ley 1581)..."
-              className="flex-1 px-5 py-3.5 rounded-full bg-white border border-[#DDE5D7] text-xs sm:text-sm text-[#141B12] shadow-[0_2px_12px_rgba(20,27,18,0.05)] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-            />
-            <button
-              type="submit"
-              disabled={isStreaming || !question.trim()}
-              className="px-6 py-3.5 rounded-full bg-[#579624] hover:bg-[#477D1C] disabled:opacity-50 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-sm transition cursor-pointer"
-            >
-              <Send className="w-4 h-4" />
-              <span>Enviar</span>
-            </button>
-          </form>
-
-          {/* Sugerencias de preguntas rápidas claramente vinculadas al chat */}
-          <div className="bg-white/90 border border-[#DDE5D7] rounded-2xl p-3.5 shadow-[0_2px_10px_rgba(20,27,18,0.04)] space-y-2.5">
-            <div className="text-[11px] font-bold text-[#477D1C] flex items-center gap-1.5">
-              <CornerDownRight className="w-3.5 h-3.5 text-[#579624]" />
-              <span>Preguntas rápidas (haz clic para enviar directamente al chat):</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {quickCitizenTopics.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => handleSendQuestion(item.q)}
-                  disabled={isStreaming}
-                  title={`Enviar al chat: "${item.q}"`}
-                  className="px-3.5 py-1.5 rounded-full bg-[#F7FAF4] hover:bg-[#EEF6E6] border border-[#DDE5D7] hover:border-[#579624] text-xs font-semibold text-[#141B12] hover:text-[#2D5211] transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <span>{item.label}</span>
-                  <Send className="w-3 h-3 text-[#579624]" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </main>
+            {renderSidebarNav()}
+          </aside>
+        </div>
       )}
 
-      {/* VISTA 2: TAB ACADÉMICO — RAYOS-X, CASOS DE VALIDACIÓN, PID, MEMORIA Y BLINDAJE */}
-      {activeTab === "xray" && (
-        <main className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
+      {/* Cuerpo Principal: Sidebar Izquierdo Fijo (Desktop) + Área de Contenido */}
+      <div className="flex-1 flex max-w-[1560px] w-full mx-auto">
+        <aside className="hidden lg:block w-64 shrink-0 px-4 py-6">
+          <div className="sticky top-24 bg-white rounded-3xl border border-[#DDE5D7] shadow-[0_2px_12px_rgba(20,27,18,0.05)] p-3.5 max-h-[calc(100vh-7rem)] overflow-y-auto">
+            {renderSidebarNav()}
+          </div>
+        </aside>
+
+        <main className="flex-1 min-w-0 px-4 sm:px-6 py-6 pb-24">
+          {/* SECCIONES OPERATIVAS & CIUDADANAS (M3) */}
+          {isM3Section(activeSection) && (
+            <M3OperationsSuite
+              activeSection={activeSection}
+              onNavigateSection={(sec) => navigateToSection(sec)}
+            />
+          )}
+
+          {/* VISTA 2: TAB ACADÉMICO — RAYOS-X, CASOS DE VALIDACIÓN, PID, MEMORIA Y BLINDAJE */}
+          {activeSection === "xray" && (
+            <div className="space-y-5">
           <div>
             <div className="text-xs font-semibold text-[#477D1C]">
               Observabilidad LangGraph · Router System One (Jev) &amp; Blindaje RAG
@@ -1569,7 +1513,7 @@ export default function App() {
                   key={preset.id}
                   onClick={() => {
                     handleSendQuestion(preset.question);
-                    setActiveTab("chat");
+                    setMileDrawerOpen(true);
                   }}
                   disabled={isStreaming}
                   title={`${preset.title}\n\n${preset.description}`}
@@ -1838,12 +1782,12 @@ export default function App() {
               )}
             </div>
           </div>
-        </main>
-      )}
+            </div>
+          )}
 
-      {/* VISTA 3: EVALUACIÓN CUANTITATIVA DEL RETRIEVAL (Recall@10 / nDCG@10) */}
-      {activeTab === "eval" && (
-        <main className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+          {/* VISTA 3: EVALUACIÓN CUANTITATIVA DEL RETRIEVAL (Recall@10 / nDCG@10) */}
+          {activeSection === "eval" && (
+            <div className="space-y-6">
           <div className="p-5 sm:p-6 rounded-3xl bg-white border border-[#DDE5D7] shadow-[0_2px_12px_rgba(20,27,18,0.05)] flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="text-xs font-semibold text-[#477D1C]">
@@ -1954,12 +1898,12 @@ export default function App() {
               </div>
             </>
           )}
-        </main>
-      )}
+            </div>
+          )}
 
-      {/* VISTA 4: ARQUITECTURA DESACOPLADA Y DATOS ESTRUCTURADOS CSV/JSON */}
-      {activeTab === "arch" && (
-        <main className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+          {/* VISTA 4: ARQUITECTURA DESACOPLADA Y DATOS ESTRUCTURADOS CSV/JSON */}
+          {activeSection === "arch" && (
+            <div className="space-y-6">
           <div>
             <div className="text-xs font-semibold text-[#477D1C]">
               Ingeniería de Plataforma · React 19 + FastAPI + LangGraph + Qdrant
@@ -2045,7 +1989,340 @@ export default function App() {
               </table>
             </div>
           </div>
+            </div>
+          )}
         </main>
+      </div>
+
+      {/* WIDGET FLOTANTE MILE (INFERIOR DERECHA — ESTILO PORTAL EMCALI 2026) */}
+      {!mileDrawerOpen && (
+        <button
+          type="button"
+          onClick={() => setMileDrawerOpen(true)}
+          className="fixed bottom-5 right-5 z-40 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white shadow-[0_10px_30px_rgba(45,82,17,0.35)] border-2 border-white/80 pl-2 pr-5 py-2 flex items-center gap-3 transition-all hover:scale-[1.02] cursor-pointer"
+          aria-label="Abrir asistente virtual Mile"
+        >
+          <div className="relative shrink-0">
+            <img
+              src="/mile-avatar.jpg"
+              alt="Mile, asistente virtual de EMCALI"
+              className="h-11 w-11 rounded-full object-cover border-2 border-white shadow-xs"
+            />
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-[#A3E635] ring-2 ring-[#579624]" />
+          </div>
+          <div className="text-left leading-tight">
+            <div className="text-xs sm:text-sm font-extrabold tracking-tight">
+              ¿En qué te puedo ayudar?
+            </div>
+            <div className="text-[11px] font-semibold text-[#EEF6E6]">
+              Mile · Asistente Virtual EMCALI
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* SLIDE-OVER DRAWER DE MILE (CHAT + VOZ MILE LIVE + HISTORIAL AISLADO) */}
+      {mileDrawerOpen && (
+        <aside
+          className={`fixed bottom-4 right-4 z-50 flex flex-col bg-white rounded-3xl border border-[#DDE5D7] shadow-[0_18px_56px_rgba(20,27,18,0.24)] overflow-hidden transition-all duration-200 h-[86vh] max-h-[780px] ${
+            mileDrawerExpanded
+              ? "w-[calc(100vw-2rem)] sm:w-[680px]"
+              : "w-[calc(100vw-2rem)] sm:w-[460px]"
+          }`}
+          aria-label="Asistente Virtual Mile"
+        >
+          {/* Cabecera Verde EMCALI del Drawer */}
+          <div className="bg-[#579624] text-white px-4 py-3 flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative shrink-0">
+                <img
+                  src="/mile-avatar.jpg"
+                  alt="Mile"
+                  className="h-9 w-9 rounded-full object-cover border-2 border-white shadow-xs"
+                />
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-[#A3E635] ring-2 ring-[#579624]" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-extrabold leading-tight truncate">
+                  Mile · Asistente Virtual
+                </div>
+                <div className="text-[11px] text-[#EEF6E6] truncate">
+                  {authRole === "manager"
+                    ? "Modo Gerencial (20 Tools)"
+                    : "Atención Ciudadana · Sync WhatsApp"}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={handleClearChat}
+                disabled={messages.length === 0 || isStreaming}
+                className="p-1.5 rounded-full hover:bg-white/15 text-white/90 hover:text-white disabled:opacity-40 cursor-pointer"
+                title="Limpiar historial visible del chat"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateNewThread}
+                className="p-1.5 rounded-full hover:bg-white/15 text-white/90 hover:text-white cursor-pointer"
+                title="Nueva conversación"
+              >
+                <PlusCircle className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMileDrawerExpanded((v) => !v)}
+                className="hidden sm:inline-flex p-1.5 rounded-full hover:bg-white/15 text-white/90 hover:text-white cursor-pointer"
+                title={mileDrawerExpanded ? "Contraer panel" : "Expandir panel"}
+              >
+                {mileDrawerExpanded ? (
+                  <Minimize2 className="w-4 h-4" />
+                ) : (
+                  <Maximize2 className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMileDrawerOpen(false)}
+                className="p-1.5 rounded-full hover:bg-white/15 text-white/90 hover:text-white cursor-pointer"
+                title="Cerrar asistente"
+                aria-label="Cerrar asistente"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Barra de Voz Mile Live dentro del Drawer */}
+          <div
+            className={`px-3.5 py-2.5 border-b border-[#DDE5D7] space-y-2 shrink-0 ${
+              liveSessionActive ? "bg-[#EEF6E6]" : "bg-[#F7FAF4]"
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => toggleBrowserMicrophone(true)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 border transition cursor-pointer ${
+                    liveSessionActive
+                      ? "bg-[#579624] text-white border-[#477D1C]"
+                      : isListeningMic && hotwordStandby
+                      ? "bg-[#141B12] text-white border-[#141B12] animate-pulse"
+                      : "bg-white hover:bg-[#EEF6E6] text-[#2D5211] border-[#CDE3B4]"
+                  }`}
+                >
+                  {isListeningMic ? (
+                    <MicOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Mic className="w-3.5 h-3.5" />
+                  )}
+                  <span>
+                    {liveSessionActive
+                      ? "🟢 Mile Live (Pausar)"
+                      : isListeningMic && hotwordStandby
+                      ? 'Escuchando "Oye Mile"...'
+                      : 'Voz ("Oye Mile")'}
+                  </span>
+                </button>
+
+                {liveActivity === "speaking" && (
+                  <button
+                    type="button"
+                    onClick={interruptSpeechBargeIn}
+                    className="px-2.5 py-1 rounded-full bg-[#FFF4E8] hover:bg-orange-100 border border-[#F5820D]/40 text-[#B45309] text-[11px] font-bold cursor-pointer"
+                  >
+                    ✋ Parar
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTtsEnabled((v) => !v)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border flex items-center gap-1 cursor-pointer ${
+                  ttsEnabled
+                    ? "bg-[#EEF6E6] text-[#2D5211] border-[#CDE3B4]"
+                    : "bg-white text-slate-500 border-[#DDE5D7]"
+                }`}
+                title="Activar/Desactivar respuesta por voz"
+              >
+                {ttsEnabled ? (
+                  <Volume2 className="w-3.5 h-3.5" />
+                ) : (
+                  <VolumeX className="w-3.5 h-3.5" />
+                )}
+                <span>Voz {ttsEnabled ? "ON" : "OFF"}</span>
+              </button>
+            </div>
+
+            {liveSessionActive && (
+              <div className="px-2.5 py-1 rounded-full bg-white border border-[#CDE3B4] inline-flex items-center gap-2 text-[10px] font-bold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#579624] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#579624]"></span>
+                </span>
+                <span className="text-[#2D5211]">
+                  {liveActivity === "thinking"
+                    ? "Mile consultando..."
+                    : liveActivity === "speaking"
+                    ? "🔊 Mile respondiendo"
+                    : "🎙️ Te escucho en vivo"}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              <input
+                value={simulatedVoiceText}
+                onChange={(e) => setSimulatedVoiceText(e.target.value)}
+                placeholder='Simulador voz: "Oye Mile, tarifa estrato 3"'
+                className="flex-1 px-3 py-1.5 rounded-full bg-white border border-[#DDE5D7] text-[11px] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+              />
+              <button
+                type="button"
+                onClick={() => handleVoiceCommandSubmit(simulatedVoiceText, true, true)}
+                className="px-3 py-1.5 rounded-full bg-[#141B12] hover:bg-[#283324] text-white text-[11px] font-bold shrink-0 cursor-pointer"
+              >
+                {liveSessionActive ? "Enviar" : "Probar"}
+              </button>
+            </div>
+
+            {interimTranscript && (
+              <div className="text-[11px] text-[#2D5211] font-medium bg-[#EEF6E6] px-3 py-1 rounded-xl border border-[#CDE3B4]">
+                🎙️ Escuchando: <em>"{interimTranscript}..."</em>
+              </div>
+            )}
+
+            {voiceBanner && (
+              <div className="text-[10px] text-[#475569] font-medium leading-snug">
+                {voiceBanner}
+              </div>
+            )}
+          </div>
+
+          {/* Stream de Mensajes de Mile */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-white">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center py-8 px-3 text-[#5B6757]">
+                <div className="h-14 w-14 rounded-2xl bg-[#EEF6E6] border border-[#CDE3B4] flex items-center justify-center mb-3 shadow-xs">
+                  <Bot className="w-7 h-7 text-[#579624]" />
+                </div>
+                <span className="px-3 py-0.5 rounded-full bg-[#FACC15] text-[#141B12] text-[10px] font-extrabold mb-2">
+                  EMCALI ¡Siempre Juntos! · 24/7
+                </span>
+                <h3 className="text-sm font-extrabold text-[#141B12]">
+                  ¡Hola! Soy Mile, tu asistente virtual
+                </h3>
+                <p className="text-xs mt-1 text-[#5B6757] leading-relaxed">
+                  Consúltame sobre tarifas, PQRS, fallas en tu barrio, cobertura de fibra óptica o
+                  di <strong className="text-[#141B12]">"Oye Mile"</strong> para hablar por voz.
+                </p>
+              </div>
+            ) : (
+              messages.map((msg, i) => {
+                const isLastStreamingAssistant =
+                  msg.role === "assistant" && isStreaming && i === messages.length - 1;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-start gap-2 ${
+                      msg.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    {msg.role === "assistant" && (
+                      <div className="shrink-0 w-9 h-9 flex items-center justify-center mt-0.5">
+                        <img
+                          src="/mile-avatar.jpg"
+                          alt="Mile"
+                          className={`w-7 h-7 rounded-full object-cover border-2 ${
+                            isLastStreamingAssistant
+                              ? "border-[#579624] shadow-md eder-orbit"
+                              : "border-[#CDE3B4]"
+                          }`}
+                        />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[84%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed shadow-xs ${
+                        msg.role === "user"
+                          ? "bg-[#579624] text-white rounded-tr-sm whitespace-pre-wrap"
+                          : "bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] rounded-tl-sm"
+                      }`}
+                    >
+                      {msg.voiceHotword && (
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#EEF6E6] mb-1">
+                          🎙️ {msg.voiceHotword}
+                        </div>
+                      )}
+                      {isLastStreamingAssistant && !msg.content ? (
+                        <span className="text-[#5B6757] italic">
+                          Mile está generando la respuesta...
+                        </span>
+                      ) : msg.role === "assistant" ? (
+                        renderMarkdownContent(msg.content)
+                      ) : (
+                        msg.content
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Barra de Envío + Preguntas Rápidas (Debajo del Input) */}
+          <div className="p-3 border-t border-[#DDE5D7] bg-[#F7FAF4] space-y-2.5 shrink-0">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendQuestion();
+              }}
+              className="flex gap-2"
+            >
+              <input
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="Escribe tu consulta para Mile..."
+                className="flex-1 px-4 py-2.5 rounded-full bg-white border border-[#DDE5D7] text-xs text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+              />
+              <button
+                type="submit"
+                disabled={isStreaming || !question.trim()}
+                className="px-4 py-2.5 rounded-full bg-[#579624] hover:bg-[#477D1C] disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Enviar</span>
+              </button>
+            </form>
+
+            {/* Sugerencias rápidas claramente vinculadas al chat */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-[#477D1C] flex items-center gap-1">
+                <CornerDownRight className="w-3 h-3 text-[#579624]" />
+                <span>Preguntas rápidas (clic para enviar al chat):</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {quickCitizenTopics.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => handleSendQuestion(item.q)}
+                    disabled={isStreaming}
+                    title={`Enviar al chat: "${item.q}"`}
+                    className="px-2.5 py-1 rounded-full bg-white hover:bg-[#EEF6E6] border border-[#DDE5D7] hover:border-[#579624] text-[11px] font-semibold text-[#141B12] hover:text-[#2D5211] transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>{item.label}</span>
+                    <Send className="w-2.5 h-2.5 text-[#579624]" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
       )}
     </div>
   );

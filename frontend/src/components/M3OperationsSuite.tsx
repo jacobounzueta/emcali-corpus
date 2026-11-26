@@ -78,11 +78,18 @@ const UMAP_SECTION_COLORS: Record<string, string> = {
   otros: "#94a3b8",
 };
 
-export const M3OperationsSuite: React.FC = () => {
-  const [subTab, setSubTab] = useState<"map" | "pqrs" | "news" | "umap_tools" | "iam" | "auth">(
-    "map"
-  );
-  const [session, setSession] = useState<AuthSession>(() => {
+export type M3Section = "map_reports" | "pqrs" | "news" | "umap_tools" | "iam" | "auth";
+
+interface M3OperationsSuiteProps {
+  activeSection: M3Section;
+  onNavigateSection: (section: M3Section) => void;
+}
+
+export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
+  activeSection,
+  onNavigateSection,
+}) => {
+  const readSavedSession = (): AuthSession => {
     try {
       const saved = localStorage.getItem("emcali_auth_session");
       if (saved) return JSON.parse(saved);
@@ -94,7 +101,8 @@ export const M3OperationsSuite: React.FC = () => {
       role: "citizen",
       display_name: "Ciudadano (Acceso Público)",
     };
-  });
+  };
+  const [session, setSession] = useState<AuthSession>(readSavedSession);
   const [loginUser, setLoginUser] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [regForm, setRegForm] = useState({
@@ -287,10 +295,22 @@ export const M3OperationsSuite: React.FC = () => {
   }, [loadMapAndOps]);
 
   useEffect(() => {
-    if (subTab === "news") loadNewsAndDigest();
-    if (subTab === "umap_tools" && !umapData) loadCatalogAndUmap(false);
-    if (subTab === "iam" && isManager) loadAdminIam();
-  }, [subTab, loadNewsAndDigest, loadCatalogAndUmap, umapData, isManager, loadAdminIam]);
+    const syncExternalAuth = () => {
+      setSession(readSavedSession());
+    };
+    window.addEventListener("emcali-auth-changed", syncExternalAuth);
+    window.addEventListener("storage", syncExternalAuth);
+    return () => {
+      window.removeEventListener("emcali-auth-changed", syncExternalAuth);
+      window.removeEventListener("storage", syncExternalAuth);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "news") loadNewsAndDigest();
+    if (activeSection === "umap_tools" && !umapData) loadCatalogAndUmap(false);
+    if (activeSection === "iam" && isManager) loadAdminIam();
+  }, [activeSection, loadNewsAndDigest, loadCatalogAndUmap, umapData, isManager, loadAdminIam]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,7 +336,7 @@ export const M3OperationsSuite: React.FC = () => {
     window.dispatchEvent(new Event("emcali-auth-changed"));
     setLoginUser("");
     setLoginPass("");
-    setSubTab("map");
+    onNavigateSection("map_reports");
     setStatusMsg(`✅ Sesión activa: ${data.display_name} (${data.role.toUpperCase()})`);
   };
 
@@ -343,7 +363,7 @@ export const M3OperationsSuite: React.FC = () => {
     localStorage.setItem("emcali_auth_session", JSON.stringify(nextSession));
     window.dispatchEvent(new Event("emcali-auth-changed"));
     setRegForm({ username: "", display_name: "", password: "", phone_e164: "" });
-    setSubTab("map");
+    onNavigateSection("map_reports");
     setStatusMsg(`🎉 Cuenta creada e iniciada: ${data.display_name} (${data.role.toUpperCase()})`);
   };
 
@@ -356,7 +376,7 @@ export const M3OperationsSuite: React.FC = () => {
     setSession(guest);
     localStorage.removeItem("emcali_auth_session");
     window.dispatchEvent(new Event("emcali-auth-changed"));
-    if (subTab === "iam") setSubTab("map");
+    if (activeSection === "iam") onNavigateSection("map_reports");
     setStatusMsg("🔄 Sesión cerrada. Modo Ciudadano público activo.");
   };
 
@@ -650,48 +670,69 @@ export const M3OperationsSuite: React.FC = () => {
     );
   };
 
+  const sectionMeta: Record<M3Section, { eyebrow: string; title: string }> = {
+    map_reports: {
+      eyebrow: "Operación en Tiempo Real · Cali",
+      title: "Mapa de Mantenimientos y Reportes de Fallas",
+    },
+    pqrs: {
+      eyebrow: "Atención Formal Ciudadana",
+      title: "Peticiones, Quejas, Reclamos y Sugerencias (PQRS)",
+    },
+    news: {
+      eyebrow: "Actualidad y Boletín OpenClaw",
+      title: "Noticias y Reparaciones EMCALI",
+    },
+    umap_tools: {
+      eyebrow: "Laboratorio IA · Embeddings & Agente",
+      title: "Proyección UMAP 2D y Catálogo de 20 Tools",
+    },
+    iam: {
+      eyebrow: "Gestión Interna EMCALI · RBAC & HITL",
+      title: "IAM Usuarios, WhatsApp Allowlist y Aprobaciones HITL",
+    },
+    auth: {
+      eyebrow: "Mi Cuenta EMCALI",
+      title: "Iniciar Sesión o Crear Cuenta Ciudadana",
+    },
+  };
+
+  const currentMeta = sectionMeta[activeSection];
+
   return (
-    <main className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 flex-1 space-y-5">
-      {/* Encabezado Editorial EMCALI 2026 + Barra de Sesión RBAC */}
-      <section className="bg-white rounded-3xl border border-[#DDE5D7] shadow-[0_2px_12px_rgba(20,27,18,0.05)] p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+    <div className="w-full space-y-5">
+      {/* Encabezado Editorial EMCALI 2026 de la sección activa */}
+      <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold text-[#477D1C]">
-            Portal Operativo EMCALI ¡Siempre Juntos!
-          </div>
+          <div className="text-xs font-semibold text-[#477D1C]">{currentMeta.eyebrow}</div>
           <div className="w-10 h-0.5 bg-[#579624] rounded-full my-1.5" />
           <div className="flex flex-wrap items-center gap-2.5">
             <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#141B12]">
-              Reparaciones, Mantenimientos y Gestión
+              {currentMeta.title}
             </h2>
             <span
-              className={`px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border ${
+              className={`px-3 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 border ${
                 isManager
                   ? "bg-[#FACC15] text-[#141B12] border-[#E5B800]"
                   : "bg-[#EEF6E6] text-[#2D5211] border-[#CDE3B4]"
               }`}
             >
               {isManager ? <ShieldCheck className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-              {isManager ? "MODO GESTIÓN EMCALI (20/20 Tools)" : "MODO CIUDADANO (16/20 Tools · RBAC)"}
+              {isManager ? "Gestión EMCALI (20/20 Tools)" : "Ciudadano (16/20 Tools)"}
             </span>
           </div>
-          <p className="text-xs text-[#5B6757] mt-1">{session.display_name}</p>
         </div>
-
-        {session.authenticated ? (
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-full bg-[#141B12] hover:bg-[#283324] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión
-          </button>
-        ) : (
-          <button
-            onClick={() => setSubTab("auth")}
-            className="px-4 py-2 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-          >
-            <Lock className="w-3.5 h-3.5" /> Iniciar Sesión / Registrarse ↗
-          </button>
-        )}
+        <div className="flex items-center gap-2 text-xs text-[#5B6757]">
+          <span className="hidden sm:inline">{session.display_name}</span>
+          {session.authenticated && (
+            <button
+              onClick={handleLogout}
+              className="px-3.5 py-1.5 rounded-full bg-[#141B12] hover:bg-[#283324] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión
+            </button>
+          )}
+        </div>
       </section>
 
       {statusMsg && (
@@ -703,270 +744,458 @@ export const M3OperationsSuite: React.FC = () => {
         </div>
       )}
 
-      {/* Sub-navegación M3 estilo pills EMCALI 2026 (IAM oculto si no es manager; Login/Registro visible si no autenticado) */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { id: "map", label: "🗺️ Mapa Cali, Mantenimientos & Brigadas" },
-          { id: "pqrs", label: "📝 PQRS & Reporte de Fallas" },
-          { id: "news", label: "📰 Noticias & Boletín OpenClaw" },
-          { id: "umap_tools", label: "🧬 UMAP 2D, 20 Tools & HITL" },
-          ...(isManager ? [{ id: "iam", label: "🔐 IAM Usuarios & WhatsApp Allowlist" }] : []),
-          ...(!session.authenticated ? [{ id: "auth", label: "🔑 Iniciar Sesión / Registro" }] : []),
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setSubTab(t.id as any)}
-            className={`px-4 py-2 rounded-full text-xs font-bold border transition cursor-pointer ${
-              subTab === t.id
-                ? "bg-[#579624] text-white border-[#477D1C] shadow-xs"
-                : "bg-white text-[#1E293B] border-[#DDE5D7] hover:border-[#579624] hover:bg-[#EEF6E6] hover:text-[#2D5211]"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* SUB-TAB 1: MAPA INTERACTIVO CALI + HOTSPOTS + ACTIVACIÓN GESTIÓN */}
-      {subTab === "map" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm font-extrabold text-[#141B12] flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-[#579624]" /> Mapa Operativo de Cali — Mantenimientos y Alertas de Fallas
-                </h2>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EEF6E6] border border-[#CDE3B4] text-[#2D5211] text-[10px] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#579624] animate-pulse" />
-                  En vivo (4s)
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  {
-                    id: "todos",
-                    label: "Todos",
-                    inactive: "bg-[#F3F6F1] text-[#1E293B] border-[#DDE5D7] hover:bg-[#E7EDE3]",
-                    active: "bg-[#141B12] text-white border-[#141B12] shadow-xs",
-                  },
-                  {
-                    id: "energia",
-                    label: "Energía",
-                    inactive: "bg-yellow-50 text-yellow-950 border-yellow-300 hover:bg-yellow-100",
-                    active: "bg-[#FACC15] text-[#141B12] border-[#D9AA00] shadow-xs",
-                  },
-                  {
-                    id: "acueducto",
-                    label: "Acueducto",
-                    inactive: "bg-sky-50 text-sky-900 border-sky-300 hover:bg-sky-100",
-                    active: "bg-sky-600 text-white border-sky-700 shadow-xs",
-                  },
-                  {
-                    id: "alcantarillado",
-                    label: "Alcantarillado",
-                    inactive: "bg-teal-50 text-teal-900 border-teal-300 hover:bg-teal-100",
-                    active: "bg-teal-600 text-white border-teal-700 shadow-xs",
-                  },
-                  {
-                    id: "telco_fibra",
-                    label: "Telco Fibra",
-                    inactive: "bg-purple-50 text-purple-900 border-purple-300 hover:bg-purple-100",
-                    active: "bg-purple-600 text-white border-purple-700 shadow-xs",
-                  },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setServiceFilter(f.id)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer ${
-                      serviceFilter === f.id ? f.active : f.inactive
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <CaliMapPanel
-              maintenances={maintenances}
-              hotspots={hotspots}
-              isManager={isManager}
-              onSelectHotspotForDispatch={handleDispatchHotspot}
-            />
-          </div>
-
-          <div className="space-y-4">
-            {/* Hotspots de Fallas para Asignación de Brigadas */}
-            <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-xs font-extrabold text-rose-700 flex items-center gap-1.5 uppercase tracking-wide">
-                  <AlertTriangle className="w-4 h-4" /> Hotspots de Fallas Ciudadanas ({hotspots.length})
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowHotspotInfo((prev) => !prev)}
-                  title="¿Qué es un Hotspot de Falla Ciudadana?"
-                  className="p-1.5 rounded-full text-rose-700 hover:bg-rose-100 transition cursor-pointer"
-                  aria-label="Información sobre hotspots de fallas ciudadanas"
-                >
-                  <Info className="w-4 h-4" />
-                </button>
-              </div>
-              {showHotspotInfo && (
-                <div className="p-3 rounded-2xl bg-[#F7FAF4] border border-[#DDE5D7] text-[11px] text-[#1E293B] leading-relaxed">
-                  <b>¿Qué es un Hotspot?</b> Agrupa automáticamente los reportes de fallas
-                  enviados por ciudadanos (WhatsApp o Web) por <b>barrio y servicio</b>:
-                  <ul className="list-disc pl-4 mt-1 space-y-0.5">
-                    <li><b>1 reporte:</b> seguimiento preventivo.</li>
-                    <li><b>2–3 reportes:</b> alerta de acumulación en el sector.</li>
-                    <li><b>4+ reportes:</b> crítico — brigada recomendada.</li>
-                  </ul>
-                  <div className="mt-1">
-                    Gestión EMCALI usa estas alertas para <b>priorizar y despachar brigadas</b> y
-                    notificar automáticamente por WhatsApp a los afectados.
-                  </div>
+      {/* SECCIÓN 1: MAPA INTERACTIVO CALI + HOTSPOTS + REPORTAR FALLA + TABLA DE REPORTES */}
+      {activeSection === "map_reports" && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-extrabold text-[#141B12] flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-[#579624]" /> Mapa Operativo de Cali — Mantenimientos y Alertas
+                  </h3>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EEF6E6] border border-[#CDE3B4] text-[#2D5211] text-[10px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#579624] animate-pulse" />
+                    En vivo (4s)
+                  </span>
                 </div>
-              )}
-              {hotspots.length === 0 ? (
-                <p className="text-xs text-[#5B6757]">
-                  Sin alertas de fallas abiertas. Reporta una falla en la pestaña PQRS &amp; Fallas para ver el agrupamiento en vivo.
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
-                  {hotspots.map((h) => (
-                    <div
-                      key={`${h.barrio}-${h.servicio}`}
-                      className="p-3 rounded-2xl bg-rose-50/70 border border-rose-200 text-xs flex items-center justify-between gap-2"
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    {
+                      id: "todos",
+                      label: "Todos",
+                      inactive: "bg-[#F3F6F1] text-[#1E293B] border-[#DDE5D7] hover:bg-[#E7EDE3]",
+                      active: "bg-[#141B12] text-white border-[#141B12] shadow-xs",
+                    },
+                    {
+                      id: "energia",
+                      label: "Energía",
+                      inactive: "bg-yellow-50 text-yellow-950 border-yellow-300 hover:bg-yellow-100",
+                      active: "bg-[#FACC15] text-[#141B12] border-[#D9AA00] shadow-xs",
+                    },
+                    {
+                      id: "acueducto",
+                      label: "Acueducto",
+                      inactive: "bg-sky-50 text-sky-900 border-sky-300 hover:bg-sky-100",
+                      active: "bg-sky-600 text-white border-sky-700 shadow-xs",
+                    },
+                    {
+                      id: "alcantarillado",
+                      label: "Alcantarillado",
+                      inactive: "bg-teal-50 text-teal-900 border-teal-300 hover:bg-teal-100",
+                      active: "bg-teal-600 text-white border-teal-700 shadow-xs",
+                    },
+                    {
+                      id: "telco_fibra",
+                      label: "Telco Fibra",
+                      inactive: "bg-purple-50 text-purple-900 border-purple-300 hover:bg-purple-100",
+                      active: "bg-purple-600 text-white border-purple-700 shadow-xs",
+                    },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setServiceFilter(f.id)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer ${
+                        serviceFilter === f.id ? f.active : f.inactive
+                      }`}
                     >
-                      <div>
-                        <div className="font-bold text-[#141B12]">
-                          {h.barrio} · <span className="uppercase text-rose-700">{h.servicio}</span>
-                        </div>
-                        <div className="text-[11px] text-[#475569]">
-                          {h.report_count} reporte(s) · {h.severity_label}
-                        </div>
-                        <div className="text-[10px] text-[#5B6757]">
-                          🕒 {h.latest_report_at ? h.latest_report_at.replace("T", " ").slice(0, 16) : "Reciente"}
-                        </div>
-                      </div>
-                      {isManager &&
-                        ((h as any).crew_dispatched ? (
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="px-2.5 py-0.5 rounded-full bg-[#EEF6E6] border border-[#CDE3B4] text-[#2D5211] text-[10px] font-bold">
-                              🚑 Brigada en sitio ({(h as any).assigned_maintenance_id})
-                            </span>
-                            <button
-                              onClick={() =>
-                                handleCloseMaintenance((h as any).assigned_maintenance_id)
-                              }
-                              className="px-3 py-1 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-[10px] font-bold cursor-pointer transition"
-                            >
-                              ✅ Marcar Resuelto
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleDispatchHotspot(h)}
-                            className="px-3 py-1.5 rounded-full bg-[#F5820D] hover:bg-[#DC7006] text-white text-[11px] font-bold shrink-0 cursor-pointer transition"
-                          >
-                            🚑 Despachar Brigada
-                          </button>
-                        ))}
-                    </div>
+                      {f.label}
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
+              <CaliMapPanel
+                maintenances={maintenances}
+                hotspots={hotspots}
+                isManager={isManager}
+                onSelectHotspotForDispatch={handleDispatchHotspot}
+              />
             </div>
 
-            {/* Activar Nuevo Punto de Mantenimiento (Solo Gestión EMCALI) */}
-            <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-xs font-extrabold text-[#141B12] flex items-center gap-1.5 uppercase tracking-wide">
-                  <Wrench className="w-4 h-4 text-[#579624]" /> Activar Punto de Mantenimiento
-                </h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#FACC15] text-[#141B12] text-[10px] font-extrabold">
-                  Reparaciones
-                </span>
-              </div>
-              {!isManager ? (
-                <div className="p-3.5 rounded-2xl bg-[#FFF4E8] border border-[#F5820D]/30 text-xs text-[#9A3412]">
-                  🛡️ <b>RBAC (`tools.deny`):</b> Inicia sesión en modo <b>Gestión EMCALI</b> para activar mantenimientos o despachar brigadas en el mapa.
+            <div className="space-y-4">
+              {/* Hotspots de Fallas para Asignación de Brigadas */}
+              <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-extrabold text-rose-700 flex items-center gap-1.5 uppercase tracking-wide">
+                    <AlertTriangle className="w-4 h-4" /> Hotspots de Fallas Ciudadanas ({hotspots.length})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowHotspotInfo((prev) => !prev)}
+                    title="¿Qué es un Hotspot de Falla Ciudadana?"
+                    className="p-1.5 rounded-full text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                    aria-label="Información sobre hotspots de fallas ciudadanas"
+                  >
+                    <Info className="w-4 h-4" />
+                  </button>
                 </div>
-              ) : (
-                <form onSubmit={handleActivateMaintenance} className="space-y-2.5 text-xs">
-                  <input
-                    required
-                    value={maintForm.titulo}
-                    onChange={(e) => setMaintForm({ ...maintForm, titulo: e.target.value })}
-                    placeholder="Título del mantenimiento"
-                    className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={maintForm.servicio}
-                      onChange={(e) => setMaintForm({ ...maintForm, servicio: e.target.value })}
-                      className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-                    >
-                      <option value="acueducto">Acueducto</option>
-                      <option value="energia">Energía</option>
-                      <option value="alcantarillado">Alcantarillado</option>
-                      <option value="telco_fibra">Telco Fibra</option>
-                    </select>
+                {showHotspotInfo && (
+                  <div className="p-3 rounded-2xl bg-[#F7FAF4] border border-[#DDE5D7] text-[11px] text-[#1E293B] leading-relaxed">
+                    <b>¿Qué es un Hotspot?</b> Agrupa automáticamente los reportes de fallas
+                    enviados por ciudadanos (WhatsApp o Web) por <b>barrio y servicio</b>:
+                    <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                      <li><b>1 reporte:</b> seguimiento preventivo.</li>
+                      <li><b>2–3 reportes:</b> alerta de acumulación en el sector.</li>
+                      <li><b>4+ reportes:</b> crítico — brigada recomendada.</li>
+                    </ul>
+                    <div className="mt-1">
+                      Gestión EMCALI usa estas alertas para <b>priorizar y despachar brigadas</b> y
+                      notificar automáticamente por WhatsApp a los afectados.
+                    </div>
+                  </div>
+                )}
+                {hotspots.length === 0 ? (
+                  <p className="text-xs text-[#5B6757]">
+                    Sin alertas de fallas abiertas. Usa el formulario abajo para reportar una falla y ver el agrupamiento en vivo.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
+                    {hotspots.map((h) => (
+                      <div
+                        key={`${h.barrio}-${h.servicio}`}
+                        className="p-3 rounded-2xl bg-rose-50/70 border border-rose-200 text-xs flex items-center justify-between gap-2"
+                      >
+                        <div>
+                          <div className="font-bold text-[#141B12]">
+                            {h.barrio} · <span className="uppercase text-rose-700">{h.servicio}</span>
+                          </div>
+                          <div className="text-[11px] text-[#475569]">
+                            {h.report_count} reporte(s) · {h.severity_label}
+                          </div>
+                          <div className="text-[10px] text-[#5B6757]">
+                            🕒 {h.latest_report_at ? h.latest_report_at.replace("T", " ").slice(0, 16) : "Reciente"}
+                          </div>
+                        </div>
+                        {isManager &&
+                          ((h as any).crew_dispatched ? (
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="px-2.5 py-0.5 rounded-full bg-[#EEF6E6] border border-[#CDE3B4] text-[#2D5211] text-[10px] font-bold">
+                                🚑 Brigada en sitio ({(h as any).assigned_maintenance_id})
+                              </span>
+                              <button
+                                onClick={() =>
+                                  handleCloseMaintenance((h as any).assigned_maintenance_id)
+                                }
+                                className="px-3 py-1 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-[10px] font-bold cursor-pointer transition"
+                              >
+                                ✅ Marcar Resuelto
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleDispatchHotspot(h)}
+                              className="px-3 py-1.5 rounded-full bg-[#F5820D] hover:bg-[#DC7006] text-white text-[11px] font-bold shrink-0 cursor-pointer transition"
+                            >
+                              🚑 Despachar Brigada
+                            </button>
+                          ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Activar Nuevo Punto de Mantenimiento (Solo Gestión EMCALI) */}
+              <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-extrabold text-[#141B12] flex items-center gap-1.5 uppercase tracking-wide">
+                    <Wrench className="w-4 h-4 text-[#579624]" /> Activar Punto de Mantenimiento
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#FACC15] text-[#141B12] text-[10px] font-extrabold">
+                    Reparaciones
+                  </span>
+                </div>
+                {!isManager ? (
+                  <div className="p-3.5 rounded-2xl bg-[#FFF4E8] border border-[#F5820D]/30 text-xs text-[#9A3412]">
+                    🛡️ <b>RBAC (`tools.deny`):</b> Inicia sesión en modo <b>Gestión EMCALI</b> para activar mantenimientos o despachar brigadas en el mapa.
+                  </div>
+                ) : (
+                  <form onSubmit={handleActivateMaintenance} className="space-y-2.5 text-xs">
                     <input
                       required
-                      value={maintForm.barrio}
-                      onChange={(e) => setMaintForm({ ...maintForm, barrio: e.target.value })}
-                      placeholder="Barrio (ej. Granada)"
-                      className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                      value={maintForm.titulo}
+                      onChange={(e) => setMaintForm({ ...maintForm, titulo: e.target.value })}
+                      placeholder="Título del mantenimiento"
+                      className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
                     />
-                  </div>
-                  <input
-                    value={maintForm.brigada_asignada}
-                    onChange={(e) =>
-                      setMaintForm({ ...maintForm, brigada_asignada: e.target.value })
-                    }
-                    placeholder="Brigada asignada"
-                    className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-                  />
-                  <textarea
-                    required
-                    rows={2}
-                    value={maintForm.descripcion}
-                    onChange={(e) => setMaintForm({ ...maintForm, descripcion: e.target.value })}
-                    placeholder="Descripción técnica de la intervención"
-                    className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white font-bold shadow-xs transition cursor-pointer"
-                  >
-                    + Activar en Mapa de Cali
-                  </button>
-                </form>
-              )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={maintForm.servicio}
+                        onChange={(e) => setMaintForm({ ...maintForm, servicio: e.target.value })}
+                        className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                      >
+                        <option value="acueducto">Acueducto</option>
+                        <option value="energia">Energía</option>
+                        <option value="alcantarillado">Alcantarillado</option>
+                        <option value="telco_fibra">Telco Fibra</option>
+                      </select>
+                      <input
+                        required
+                        value={maintForm.barrio}
+                        onChange={(e) => setMaintForm({ ...maintForm, barrio: e.target.value })}
+                        placeholder="Barrio (ej. Granada)"
+                        className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                      />
+                    </div>
+                    <input
+                      value={maintForm.brigada_asignada}
+                      onChange={(e) =>
+                        setMaintForm({ ...maintForm, brigada_asignada: e.target.value })
+                      }
+                      placeholder="Brigada asignada"
+                      className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                    />
+                    <textarea
+                      required
+                      rows={2}
+                      value={maintForm.descripcion}
+                      onChange={(e) => setMaintForm({ ...maintForm, descripcion: e.target.value })}
+                      placeholder="Descripción técnica de la intervención"
+                      className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                    />
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white font-bold shadow-xs transition cursor-pointer"
+                    >
+                      + Activar en Mapa de Cali
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Formulario rápido de Reporte de Falla + Tabla de Reportes Ciudadanos */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <form
+              onSubmit={handleCreateFailure}
+              className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3 text-xs"
+            >
+              <div>
+                <div className="text-[11px] font-semibold text-[#DC7006]">Alerta Ciudadana</div>
+                <div className="w-8 h-0.5 bg-[#F5820D] rounded-full my-1" />
+                <h3 className="text-base font-extrabold tracking-tight text-[#141B12]">
+                  ⚠️ Reportar Falla de Servicio
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <select
+                  value={failForm.servicio}
+                  onChange={(e) => setFailForm({ ...failForm, servicio: e.target.value })}
+                  className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                >
+                  <option value="acueducto">Acueducto</option>
+                  <option value="energia">Energía</option>
+                  <option value="alcantarillado">Alcantarillado</option>
+                  <option value="telco_fibra">Telco Fibra</option>
+                </select>
+                <input
+                  required
+                  value={failForm.barrio}
+                  onChange={(e) => setFailForm({ ...failForm, barrio: e.target.value })}
+                  placeholder="Barrio (ej. Ciudad Jardín)"
+                  className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <select
+                  value={failForm.identificador_tipo}
+                  onChange={(e) => setFailForm({ ...failForm, identificador_tipo: e.target.value })}
+                  className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                >
+                  <option value="contrato">Cliente — Contrato</option>
+                  <option value="cedula">No Cliente — Cédula</option>
+                </select>
+                <input
+                  required
+                  value={failForm.identificador_valor}
+                  onChange={(e) => setFailForm({ ...failForm, identificador_valor: e.target.value })}
+                  placeholder="Contrato o cédula"
+                  className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                />
+              </div>
+              <input
+                value={failForm.direccion}
+                onChange={(e) => setFailForm({ ...failForm, direccion: e.target.value })}
+                placeholder="Dirección o referencia (opcional)"
+                className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+              />
+              <textarea
+                required
+                rows={2}
+                value={failForm.descripcion}
+                onChange={(e) => setFailForm({ ...failForm, descripcion: e.target.value })}
+                placeholder="Describe la falla (ej. sin energía, fuga de agua, corte de fibra)..."
+                className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+              />
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-full bg-[#F5820D] hover:bg-[#DC7006] text-white font-bold shadow-xs transition cursor-pointer"
+              >
+                Reportar Falla en Mapa de Cali
+              </button>
+            </form>
+
+            {/* Listado reciente de Reportes de Fallas Ciudadanas con Gestión & Respuesta WhatsApp */}
+            <div className="lg:col-span-2 bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)]">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="text-xs font-extrabold text-[#141B12] uppercase tracking-wider">
+                  ⚠️ Reportes Ciudadanos de Fallas Almacenados ({failureReportsList.length})
+                </h3>
+                {isManager && (
+                  <span className="text-[11px] text-[#2D5211] bg-[#EEF6E6] border border-[#CDE3B4] px-3 py-0.5 rounded-full font-semibold">
+                    📱 Al guardar, se responde automáticamente por WhatsApp si hay contacto
+                  </span>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#F3F6F1] text-[#475569] uppercase text-[11px] font-bold">
+                    <tr>
+                      <th className="p-2.5">Reporte</th>
+                      <th className="p-2.5">Servicio / Barrio</th>
+                      <th className="p-2.5">Ciudadano / Contacto</th>
+                      <th className="p-2.5">Descripción</th>
+                      <th className="p-2.5">Estado</th>
+                      {isManager && <th className="p-2.5">Tramitar y Responder (WhatsApp)</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E7EDE3]">
+                    {failureReportsList.slice(0, 20).map((f) => {
+                      const draft = failureEdits[f.reporte_id] || {
+                        estado: f.estado,
+                        notas: f.notas_gestion || "",
+                      };
+                      return (
+                        <tr key={f.reporte_id} className="hover:bg-[#F7FAF4]">
+                          <td className="p-2.5 font-mono font-bold text-[#141B12]">
+                            {f.reporte_id}
+                            {f.maintenance_id && (
+                              <div className="text-[10px] text-[#477D1C] font-semibold">
+                                🔧 {f.maintenance_id}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-2.5">
+                            <span className="uppercase font-bold text-[#141B12]">{f.servicio}</span>
+                            <div className="text-[11px] text-[#5B6757]">{f.barrio}</div>
+                          </td>
+                          <td className="p-2.5">
+                            <div className="font-semibold text-[#141B12]">{f.nombre_ciudadano}</div>
+                            <div className="text-[10px] text-[#5B6757]">
+                              {f.identificador_tipo}: {f.identificador_valor}
+                            </div>
+                            {f.telefono_e164 && (
+                              <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-[#EEF6E6] text-[#2D5211] text-[10px] font-mono">
+                                📱 {f.telefono_e164}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2.5 max-w-[200px]">
+                            <p className="text-[11px] text-[#1E293B] line-clamp-2" title={f.descripcion}>
+                              {f.descripcion}
+                            </p>
+                            <div className="text-[10px] text-[#5B6757] mt-0.5">
+                              🕒 {f.created_at ? f.created_at.replace("T", " ").slice(0, 16) : ""}
+                            </div>
+                          </td>
+                          <td className="p-2.5">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full font-bold ${
+                                f.estado === "Resuelto"
+                                  ? "bg-[#EEF6E6] text-[#2D5211] border border-[#CDE3B4]"
+                                  : f.estado === "Brigada asignada"
+                                  ? "bg-sky-100 text-sky-900"
+                                  : "bg-[#FACC15]/40 text-[#141B12]"
+                              }`}
+                            >
+                              {f.estado}
+                            </span>
+                            {f.notas_gestion && (
+                              <p
+                                className="text-[10px] text-[#5B6757] mt-0.5 max-w-[160px] truncate"
+                                title={f.notas_gestion}
+                              >
+                                {f.notas_gestion}
+                              </p>
+                            )}
+                          </td>
+                          {isManager && (
+                            <td className="p-2.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <select
+                                  value={draft.estado}
+                                  onChange={(e) =>
+                                    setFailureEdits((prev) => ({
+                                      ...prev,
+                                      [f.reporte_id]: { ...draft, estado: e.target.value },
+                                    }))
+                                  }
+                                  className="rounded-lg border border-[#DDE5D7] px-2 py-1 text-[11px] bg-white focus:outline-none focus:border-[#579624]"
+                                >
+                                  <option value="Reportado">Reportado</option>
+                                  <option value="Agrupado en alerta">Agrupado en alerta</option>
+                                  <option value="Brigada asignada">Brigada asignada</option>
+                                  <option value="Resuelto">Resuelto</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  placeholder="Respuesta al ciudadano..."
+                                  value={draft.notas}
+                                  onChange={(e) =>
+                                    setFailureEdits((prev) => ({
+                                      ...prev,
+                                      [f.reporte_id]: { ...draft, notas: e.target.value },
+                                    }))
+                                  }
+                                  className="rounded-lg border border-[#DDE5D7] px-2 py-1 text-[11px] w-36 focus:outline-none focus:border-[#579624]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateFailureStatus(
+                                      f.reporte_id,
+                                      f.estado,
+                                      f.notas_gestion || ""
+                                    )
+                                  }
+                                  className="px-3 py-1 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-[11px] font-bold cursor-pointer"
+                                >
+                                  Responder
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* SUB-TAB 2: PQRS & REPORTE DE FALLAS */}
-      {subTab === "pqrs" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* SECCIÓN 2: PQRS (DEDICADA) */}
+      {activeSection === "pqrs" && (
+        <div className="space-y-5">
           <form
             onSubmit={handleCreatePqrs}
-            className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3 text-xs"
+            className="bg-white rounded-3xl border border-[#DDE5D7] p-5 sm:p-6 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3.5 text-xs"
           >
             <div>
-              <div className="text-[11px] font-semibold text-[#477D1C]">Atención Formal</div>
+              <div className="text-[11px] font-semibold text-[#477D1C]">Radicación en Línea</div>
               <div className="w-8 h-0.5 bg-[#579624] rounded-full my-1" />
               <h3 className="text-base font-extrabold tracking-tight text-[#141B12]">
                 📝 Radicar PQRS (Por Contrato o por Cédula si no es cliente)
               </h3>
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
               <select
                 value={pqrsForm.tipo}
                 onChange={(e) => setPqrsForm({ ...pqrsForm, tipo: e.target.value })}
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                className="px-3 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               >
                 <option>Petición</option>
                 <option>Queja</option>
@@ -976,19 +1205,17 @@ export const M3OperationsSuite: React.FC = () => {
               <select
                 value={pqrsForm.servicio}
                 onChange={(e) => setPqrsForm({ ...pqrsForm, servicio: e.target.value })}
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                className="px-3 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               >
                 <option value="energia">Energía</option>
                 <option value="acueducto">Acueducto</option>
                 <option value="alcantarillado">Alcantarillado</option>
                 <option value="telco_fibra">Telco Fibra</option>
               </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
               <select
                 value={pqrsForm.identificador_tipo}
                 onChange={(e) => setPqrsForm({ ...pqrsForm, identificador_tipo: e.target.value })}
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                className="px-3 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               >
                 <option value="contrato">Cliente — Número de Contrato</option>
                 <option value="cedula">No Cliente — Cédula</option>
@@ -998,23 +1225,29 @@ export const M3OperationsSuite: React.FC = () => {
                 value={pqrsForm.identificador_valor}
                 onChange={(e) => setPqrsForm({ ...pqrsForm, identificador_valor: e.target.value })}
                 placeholder="Número (mín. 5 dígitos)"
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                className="px-3 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <input
                 required
                 value={pqrsForm.nombre_ciudadano}
                 onChange={(e) => setPqrsForm({ ...pqrsForm, nombre_ciudadano: e.target.value })}
                 placeholder="Nombre completo"
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                className="px-3 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               />
               <input
                 required
                 value={pqrsForm.barrio}
                 onChange={(e) => setPqrsForm({ ...pqrsForm, barrio: e.target.value })}
                 placeholder="Barrio de Cali"
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+                className="px-3 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+              />
+              <input
+                value={pqrsForm.telefono_e164}
+                onChange={(e) => setPqrsForm({ ...pqrsForm, telefono_e164: e.target.value })}
+                placeholder="WhatsApp opcional (+57300...)"
+                className="px-3 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] font-mono focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               />
             </div>
             <textarea
@@ -1023,90 +1256,30 @@ export const M3OperationsSuite: React.FC = () => {
               value={pqrsForm.descripcion}
               onChange={(e) => setPqrsForm({ ...pqrsForm, descripcion: e.target.value })}
               placeholder="Describe tu petición, queja, reclamo o sugerencia..."
-              className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
             />
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white font-bold shadow-xs transition cursor-pointer"
-            >
-              Radicar PQRS en SQLite
-            </button>
-          </form>
-
-          <form
-            onSubmit={handleCreateFailure}
-            className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3 text-xs"
-          >
-            <div>
-              <div className="text-[11px] font-semibold text-[#DC7006]">Alerta Ciudadana</div>
-              <div className="w-8 h-0.5 bg-[#F5820D] rounded-full my-1" />
-              <h3 className="text-base font-extrabold tracking-tight text-[#141B12]">
-                ⚠️ Reportar Falla de Servicio (Georreferencia y Alerta Brigadas)
-              </h3>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <select
-                value={failForm.servicio}
-                onChange={(e) => setFailForm({ ...failForm, servicio: e.target.value })}
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white font-bold shadow-xs transition cursor-pointer"
               >
-                <option value="acueducto">Acueducto</option>
-                <option value="energia">Energía</option>
-                <option value="alcantarillado">Alcantarillado</option>
-                <option value="telco_fibra">Telco Fibra</option>
-              </select>
-              <input
-                required
-                value={failForm.barrio}
-                onChange={(e) => setFailForm({ ...failForm, barrio: e.target.value })}
-                placeholder="Barrio afectado (ej. Ciudad Jardín)"
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-              />
+                Radicar PQRS en SQLite
+              </button>
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <select
-                value={failForm.identificador_tipo}
-                onChange={(e) => setFailForm({ ...failForm, identificador_tipo: e.target.value })}
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-              >
-                <option value="contrato">Cliente — Contrato</option>
-                <option value="cedula">No Cliente — Cédula</option>
-              </select>
-              <input
-                required
-                value={failForm.identificador_valor}
-                onChange={(e) => setFailForm({ ...failForm, identificador_valor: e.target.value })}
-                placeholder="Número de contrato o cédula"
-                className="px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-              />
-            </div>
-            <input
-              value={failForm.direccion}
-              onChange={(e) => setFailForm({ ...failForm, direccion: e.target.value })}
-              placeholder="Dirección o referencia (opcional)"
-              className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-            />
-            <textarea
-              required
-              rows={2}
-              value={failForm.descripcion}
-              onChange={(e) => setFailForm({ ...failForm, descripcion: e.target.value })}
-              placeholder="Describe la falla (ej. sin energía, fuga de agua, corte de fibra)..."
-              className="w-full px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
-            />
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-full bg-[#F5820D] hover:bg-[#DC7006] text-white font-bold shadow-xs transition cursor-pointer"
-            >
-              Reportar Falla en Mapa de Cali
-            </button>
           </form>
 
           {/* Listado reciente de PQRS */}
-          <div className="lg:col-span-2 bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)]">
-            <h3 className="text-xs font-extrabold text-[#141B12] uppercase tracking-wider mb-3">
-              Radicados PQRS Almacenados ({pqrsList.length})
-            </h3>
+          <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <h3 className="text-xs font-extrabold text-[#141B12] uppercase tracking-wider">
+                Radicados PQRS Almacenados ({pqrsList.length})
+              </h3>
+              {isManager && (
+                <span className="text-[11px] text-[#2D5211] bg-[#EEF6E6] border border-[#CDE3B4] px-3 py-0.5 rounded-full font-semibold">
+                  📱 Al guardar cambios, se notifica por WhatsApp si hay teléfono registrado
+                </span>
+              )}
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead className="bg-[#F3F6F1] text-[#475569] uppercase text-[11px] font-bold">
@@ -1120,7 +1293,7 @@ export const M3OperationsSuite: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E7EDE3]">
-                  {pqrsList.slice(0, 15).map((p) => {
+                  {pqrsList.slice(0, 20).map((p) => {
                     const draft = pqrsEdits[p.radicado_id] || {
                       estado: p.estado,
                       notas: p.notas_gestion || "",
@@ -1185,147 +1358,9 @@ export const M3OperationsSuite: React.FC = () => {
                                     p.notas_gestion || ""
                                   )
                                 }
-                                className="px-3 py-1 rounded-full bg-[#141B12] hover:bg-[#283324] text-white text-[11px] font-bold cursor-pointer"
-                              >
-                                Guardar
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Listado reciente de Reportes de Fallas Ciudadanas con Gestión & Respuesta WhatsApp */}
-          <div className="lg:col-span-2 bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)]">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <h3 className="text-xs font-extrabold text-[#141B12] uppercase tracking-wider">
-                ⚠️ Reportes Ciudadanos de Fallas Almacenados ({failureReportsList.length})
-              </h3>
-              {isManager && (
-                <span className="text-[11px] text-[#2D5211] bg-[#EEF6E6] border border-[#CDE3B4] px-3 py-0.5 rounded-full font-semibold">
-                  📱 Al guardar, se responde automáticamente por WhatsApp si hay contacto
-                </span>
-              )}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#F3F6F1] text-[#475569] uppercase text-[11px] font-bold">
-                  <tr>
-                    <th className="p-2.5">Reporte</th>
-                    <th className="p-2.5">Servicio / Barrio</th>
-                    <th className="p-2.5">Ciudadano / Contacto</th>
-                    <th className="p-2.5">Descripción</th>
-                    <th className="p-2.5">Estado</th>
-                    {isManager && <th className="p-2.5">Tramitar y Responder (WhatsApp)</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E7EDE3]">
-                  {failureReportsList.slice(0, 20).map((f) => {
-                    const draft = failureEdits[f.reporte_id] || {
-                      estado: f.estado,
-                      notas: f.notas_gestion || "",
-                    };
-                    return (
-                      <tr key={f.reporte_id} className="hover:bg-[#F7FAF4]">
-                        <td className="p-2.5 font-mono font-bold text-[#141B12]">
-                          {f.reporte_id}
-                          {f.maintenance_id && (
-                            <div className="text-[10px] text-[#477D1C] font-semibold">
-                              🔧 {f.maintenance_id}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-2.5">
-                          <span className="uppercase font-bold text-[#141B12]">{f.servicio}</span>
-                          <div className="text-[11px] text-[#5B6757]">{f.barrio}</div>
-                        </td>
-                        <td className="p-2.5">
-                          <div className="font-semibold text-[#141B12]">{f.nombre_ciudadano}</div>
-                          <div className="text-[10px] text-[#5B6757]">
-                            {f.identificador_tipo}: {f.identificador_valor}
-                          </div>
-                          {f.telefono_e164 && (
-                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-[#EEF6E6] text-[#2D5211] text-[10px] font-mono">
-                              📱 {f.telefono_e164}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2.5 max-w-[200px]">
-                          <p className="text-[11px] text-[#1E293B] line-clamp-2" title={f.descripcion}>
-                            {f.descripcion}
-                          </p>
-                          <div className="text-[10px] text-[#5B6757] mt-0.5">
-                            🕒 {f.created_at ? f.created_at.replace("T", " ").slice(0, 16) : ""}
-                          </div>
-                        </td>
-                        <td className="p-2.5">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full font-bold ${
-                              f.estado === "Resuelto"
-                                ? "bg-[#EEF6E6] text-[#2D5211] border border-[#CDE3B4]"
-                                : f.estado === "Brigada asignada"
-                                ? "bg-sky-100 text-sky-900"
-                                : "bg-[#FACC15]/40 text-[#141B12]"
-                            }`}
-                          >
-                            {f.estado}
-                          </span>
-                          {f.notas_gestion && (
-                            <p
-                              className="text-[10px] text-[#5B6757] mt-0.5 max-w-[160px] truncate"
-                              title={f.notas_gestion}
-                            >
-                              {f.notas_gestion}
-                            </p>
-                          )}
-                        </td>
-                        {isManager && (
-                          <td className="p-2.5">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <select
-                                value={draft.estado}
-                                onChange={(e) =>
-                                  setFailureEdits((prev) => ({
-                                    ...prev,
-                                    [f.reporte_id]: { ...draft, estado: e.target.value },
-                                  }))
-                                }
-                                className="rounded-lg border border-[#DDE5D7] px-2 py-1 text-[11px] bg-white focus:outline-none focus:border-[#579624]"
-                              >
-                                <option value="Reportado">Reportado</option>
-                                <option value="Agrupado en alerta">Agrupado en alerta</option>
-                                <option value="Brigada asignada">Brigada asignada</option>
-                                <option value="Resuelto">Resuelto</option>
-                              </select>
-                              <input
-                                type="text"
-                                placeholder="Respuesta al ciudadano..."
-                                value={draft.notas}
-                                onChange={(e) =>
-                                  setFailureEdits((prev) => ({
-                                    ...prev,
-                                    [f.reporte_id]: { ...draft, notas: e.target.value },
-                                  }))
-                                }
-                                className="rounded-lg border border-[#DDE5D7] px-2 py-1 text-[11px] w-36 focus:outline-none focus:border-[#579624]"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateFailureStatus(
-                                    f.reporte_id,
-                                    f.estado,
-                                    f.notas_gestion || ""
-                                  )
-                                }
                                 className="px-3 py-1 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-[11px] font-bold cursor-pointer"
                               >
-                                Responder
+                                Guardar
                               </button>
                             </div>
                           </td>
@@ -1341,7 +1376,7 @@ export const M3OperationsSuite: React.FC = () => {
       )}
 
       {/* SUB-TAB 3: NOTICIAS & BOLETÍN DIARIO OPENCLAW */}
-      {subTab === "news" && (
+      {activeSection === "news" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-4">
             <div className="flex items-center justify-between gap-2">
@@ -1448,7 +1483,7 @@ export const M3OperationsSuite: React.FC = () => {
       )}
 
       {/* SUB-TAB 4: UMAP 2D + 20 TOOLS + HITL */}
-      {subTab === "umap_tools" && (
+      {activeSection === "umap_tools" && (
         <div className="space-y-5">
           <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1572,7 +1607,34 @@ export const M3OperationsSuite: React.FC = () => {
       )}
 
       {/* SUB-TAB 6: INICIAR SESIÓN & REGISTRO CIUDADANO (SIN CREDENCIALES PRECARGADAS) */}
-      {subTab === "auth" && !session.authenticated && (
+      {activeSection === "auth" && session.authenticated && (
+        <div className="bg-white rounded-3xl border border-[#DDE5D7] p-6 shadow-[0_2px_12px_rgba(20,27,18,0.05)] flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-sm font-extrabold text-[#141B12]">
+              Sesión activa: {session.display_name}
+            </div>
+            <p className="text-xs text-[#475569]">
+              Rol actual: <b className="uppercase text-[#2D5211]">{session.role}</b>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onNavigateSection("map_reports")}
+              className="px-4 py-2 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-xs font-bold cursor-pointer"
+            >
+              Ir a Mapa y Reportes
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-full bg-[#141B12] hover:bg-[#283324] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeSection === "auth" && !session.authenticated && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <form
             onSubmit={handleLogin}
@@ -1675,9 +1737,54 @@ export const M3OperationsSuite: React.FC = () => {
         </div>
       )}
 
-      {/* SUB-TAB 5: IAM USUARIOS & WHATSAPP ALLOWLIST (SOLO GESTIÓN EMCALI) */}
-      {subTab === "iam" && isManager && (
-        <div className="space-y-4">
+      {/* SUB-TAB 5: IAM USUARIOS, WHATSAPP ALLOWLIST & HITL (SOLO GESTIÓN EMCALI) */}
+      {activeSection === "iam" && isManager && (
+        <div className="space-y-5">
+          {/* Panel de Aprobaciones HITL */}
+          <div className="bg-[#FFF4E8] rounded-3xl border border-[#F5820D]/40 p-5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-extrabold text-[#9A3412] uppercase tracking-wider">
+                ⏳ Aprobaciones Human-in-the-Loop (HITL) Pendientes ({hitlPending.length})
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full bg-white border border-[#F5820D]/30 text-[#9A3412] text-[10px] font-bold">
+                Control de Acciones Críticas
+              </span>
+            </div>
+            {hitlPending.length === 0 ? (
+              <p className="text-xs text-[#9A3412]/80">
+                No hay solicitudes HITL pendientes en este momento. Cuando una herramienta protegida solicite aprobación humana, aparecerá aquí en vivo.
+              </p>
+            ) : (
+              hitlPending.map((a) => (
+                <div
+                  key={a.action_id}
+                  className="bg-white p-3.5 rounded-2xl border border-[#F5820D]/25 flex items-center justify-between gap-2 text-xs"
+                >
+                  <div>
+                    <div className="font-bold text-[#141B12]">
+                      {a.action_id} · <code>{a.tool_name}</code>
+                    </div>
+                    <div className="text-[#475569]">{a.summary}</div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => handleResolveHitl(a.action_id, true)}
+                      className="px-3.5 py-1.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white font-bold cursor-pointer"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      onClick={() => handleResolveHitl(a.action_id, false)}
+                      className="px-3.5 py-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {/* Control en vivo del Allowlist WhatsApp (OpenClaw) */}
               <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3.5">
@@ -1803,9 +1910,9 @@ export const M3OperationsSuite: React.FC = () => {
                   ))}
                 </div>
               </div>
-            </div>
+          </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };
