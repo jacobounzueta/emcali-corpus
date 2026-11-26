@@ -45,7 +45,7 @@ def listar_catalogo_20_herramientas() -> dict[str, Any]:
 
 @mcp.tool()
 def verificar_identidad_rbac_whatsapp(phone_e164: str) -> dict[str, Any]:
-    """Consulta en IAM/RBAC el usuario, departamento y rol (manager/citizen) de un número WhatsApp."""
+    """Consulta en IAM/RBAC el usuario y rol (manager/citizen) de un número WhatsApp."""
     db = get_ops_db()
     normalized = db._normalize_phone_e164(phone_e164)
     role = db.resolve_role_by_phone(normalized)
