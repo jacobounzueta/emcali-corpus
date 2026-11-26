@@ -298,7 +298,7 @@ export default function App() {
   const [storeMemories, setStoreMemories] = useState<MemoryItem[]>([]);
   const [threadCheckpoints, setThreadCheckpoints] = useState<Array<Record<string, any>>>([]);
 
-  // Voz, Hotword ("Melva" / "Oye Melva" / "Hola Melva") y Modo Continuo "Melva Live" (Gemini Live style)
+  // Voz, Hotword ("Doña Melva" / "Oye Doña Melva" / "Hola Doña Melva") y Modo Continuo "Melva Live" (Gemini Live style)
   const [isListeningMic, setIsListeningMic] = useState<boolean>(false);
   const [hotwordStandby, setHotwordStandby] = useState<boolean>(false);
   const [liveSessionActive, setLiveSessionActive] = useState<boolean>(false);
@@ -309,7 +309,7 @@ export default function App() {
   const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
   const [voiceBanner, setVoiceBanner] = useState<string>("");
   const [simulatedVoiceText, setSimulatedVoiceText] = useState<string>(
-    "Oye Melva, ¿cuántas PQR se atendieron en el tercer trimestre?"
+    "Oye Doña Melva, ¿cuántas PQR se atendieron en el tercer trimestre?"
   );
   const recognitionRef = useRef<any>(null);
   const liveSessionRef = useRef<boolean>(false);
@@ -818,23 +818,23 @@ export default function App() {
       if (!data.accepted) {
         resumeMicAfterSpeakerOutput(250);
         setVoiceBanner(
-          `⏸️ Ignorado en espera: di "Melva", "Oye Melva" o "Hola Melva" para activar Melva Live (capturado: "${spokenTranscript}").`
+          `⏸️ Ignorado en espera: di "Doña Melva", "Oye Doña Melva" o "Hola Doña Melva" para activar Melva Live (capturado: "${spokenTranscript}").`
         );
         return;
       }
 
       const analysis = data.voice_analysis;
 
-      // Si el usuario dijo "Gracias Melva" / "Eso es todo" -> vuelve a espera
+      // Si el usuario dijo "Gracias Doña Melva" / "Eso es todo" -> vuelve a espera
       if (analysis.sleep_requested) {
         liveSessionRef.current = false;
         setLiveSessionActive(false);
         setVoiceBanner(
-          '🌙 Melva Live en espera. Cuando me necesites vuelve a decir "Oye Melva" o "Hola Melva".'
+          '🌙 Melva Live en espera. Cuando me necesites vuelve a decir "Oye Doña Melva" o "Hola Doña Melva".'
         );
         speakText(
           data.tts_speech_text ||
-            "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Melva."
+            "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Doña Melva."
         );
         return;
       }
@@ -845,7 +845,7 @@ export default function App() {
 
       if (analysis.wake_only) {
         setVoiceBanner(
-          `🟢 Melva Live ACTIVO ("${analysis.matched_hotword}"). Habla libremente cuando Melva termine de saludarte (di "Gracias Melva" para salir).`
+          `🟢 Melva Live ACTIVO ("${analysis.matched_hotword}"). Habla libremente cuando Melva termine de saludarte (di "Gracias Doña Melva" para salir).`
         );
         speakText(
           data.tts_speech_text ||
@@ -922,8 +922,8 @@ export default function App() {
       setLiveActivity(liveSessionRef.current ? "listening" : "standby");
       setVoiceBanner(
         liveSessionRef.current
-          ? '🟢 Melva Live escuchando en vivo... Habla con naturalidad (o di "Gracias Melva" para pausar)'
-          : '🎧 Standby: di "Melva", "Oye Melva" o "Hola Melva" para despertar el modo Melva Live'
+          ? '🟢 Melva Live escuchando en vivo... Habla con naturalidad (o di "Gracias Doña Melva" para pausar)'
+          : '🎧 Standby: di "Doña Melva", "Oye Doña Melva" o "Hola Doña Melva" para despertar el modo Melva Live'
       );
     };
 
@@ -2123,8 +2123,8 @@ export default function App() {
                     {liveSessionActive
                       ? "🟢 Melva Live (Pausar)"
                       : isListeningMic && hotwordStandby
-                      ? 'Escuchando "Oye Melva"...'
-                      : 'Voz ("Oye Melva")'}
+                      ? 'Escuchando "Oye Doña Melva"...'
+                      : 'Voz ("Oye Doña Melva")'}
                   </span>
                 </button>
 
@@ -2178,7 +2178,7 @@ export default function App() {
               <input
                 value={simulatedVoiceText}
                 onChange={(e) => setSimulatedVoiceText(e.target.value)}
-                placeholder='Simulador voz: "Oye Melva, tarifa estrato 3"'
+                placeholder='Simulador voz: "Oye Doña Melva, tarifa estrato 3"'
                 className="flex-1 px-3 py-1.5 rounded-full bg-white border border-[#DDE5D7] text-[11px] text-[#141B12] focus:outline-none focus:ring-2 focus:ring-[#579624]/30 focus:border-[#579624]"
               />
               <button
@@ -2218,7 +2218,7 @@ export default function App() {
                 </h3>
                 <p className="text-xs mt-1 text-[#5B6757] leading-relaxed">
                   Consúltame sobre tarifas, PQRS, fallas en tu barrio, cobertura de fibra óptica o
-                  di <strong className="text-[#141B12]">"Oye Melva"</strong> para hablar por voz.
+                  di <strong className="text-[#141B12]">"Oye Doña Melva"</strong> para hablar por voz.
                 </p>
               </div>
             ) : (

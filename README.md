@@ -127,7 +127,7 @@ El módulo [`src/emcali_corpus/retrieval_eval.py`](src/emcali_corpus/retrieval_e
 ## 🎙️ Voz Neural Colombiana (`Melva Live` & WhatsApp)
 
 - **Síntesis Neural con Fallback Automático (`voice.py` · `POST /api/voice/tts` · `tts_cli.py`):** Utiliza **ElevenLabs** (`eleven_flash_v2_5`) cuando `ELEVENLABS_API_KEY` está configurada, con fallback automático a **Microsoft Edge Neural TTS (`es-CO-SalomeNeural`)** y voz femenina del navegador.
-- **Hotword `Melva Live` en Web:** Activación por `"Melva"`, `"Oye Melva"`, `"Hola Melva"`, corrección fonética colombiana (`EMCALI`, `PQRS`, `kWh`, `Ley 1581`, `PSE`) y protección *half-duplex* + *Barge-In*.
+- **Hotword `Melva Live` en Web:** Activación por `"Doña Melva"`, `"Oye Doña Melva"`, `"Hola Doña Melva"`, corrección fonética colombiana (`EMCALI`, `PQRS`, `kWh`, `Ley 1581`, `PSE`) y protección *half-duplex* + *Barge-In*.
 - **WhatsApp bajo demanda (`tts.auto: "tagged"`):** Responde en texto por defecto y genera notas de voz `.ogg` (vía `@openclaw/tts-local-cli` + `ffmpeg`) únicamente cuando el usuario lo solicita explícitamente.
 
 ---

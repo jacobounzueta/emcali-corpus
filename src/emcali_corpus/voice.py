@@ -1,4 +1,4 @@
-"""Procesamiento de voz, hotword ('Melva', 'Oye Melva', 'Hola Melva') y síntesis neural TTS."""
+"""Procesamiento de voz, hotword ('Doña Melva', 'Oye Doña Melva') y síntesis neural TTS."""
 
 from __future__ import annotations
 
@@ -15,6 +15,17 @@ DEFAULT_ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
 DEFAULT_ELEVENLABS_MODEL = "eleven_flash_v2_5"
 
 HOTWORD_ALIASES: tuple[str, ...] = (
+    "oye doña melva",
+    "hola doña melva",
+    "doña melva",
+    "hey doña melva",
+    "ok doña melva",
+    "oye dona melva",
+    "hola dona melva",
+    "dona melva",
+    "oye doña melba",
+    "hola doña melba",
+    "doña melba",
     "oye melva",
     "hola melva",
     "melva",
@@ -35,25 +46,31 @@ HOTWORD_ALIASES: tuple[str, ...] = (
 
 HOTWORD_REGEX = re.compile(
     r"^\s*(?:(?:oye|hola|hey|ok|buenos\s+d[ií]as|buenas\s+tardes)\s+)?"
-    r"(?:melva|melba|mile|myle|mila|milena|eder|éder|edher|heber|ever|emcali|em\s+cali|en\s+cali)\b[,.:;!\s-]*",
+    r"(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|myle|mila|milena|"
+    r"eder|éder|edher|heber|ever|emcali|em\s+cali|en\s+cali)\b[,.:;!\s-]*",
     re.IGNORECASE,
 )
 
 SLEEP_REGEX = re.compile(
-    r"^\s*(?:(?:muchas\s+)?gracias(?:\s+(?:melva|melba|mile|eder))?|adi[oó]s(?:\s+(?:melva|melba|mile|eder))?|"
-    r"hasta\s+luego(?:\s+(?:melva|melba|mile|eder))?|eso\s+es\s+todo(?:\s+(?:melva|melba|mile|eder))?|"
-    r"detente(?:\s+(?:melva|melba|mile|eder))?|para\s+(?:melva|melba|mile|eder)|terminar\s+sesi[oó]n|modo\s+espera)\s*[.!]*$",
+    r"^\s*(?:(?:muchas\s+)?gracias(?:\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder))?|"
+    r"adi[oó]s(?:\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder))?|"
+    r"hasta\s+luego(?:\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder))?|"
+    r"eso\s+es\s+todo(?:\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder))?|"
+    r"detente(?:\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder))?|"
+    r"para\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder)|"
+    r"terminar\s+sesi[oó]n|modo\s+espera)\s*[.!]*$",
     re.IGNORECASE,
 )
 
 SELF_ECHO_REGEX = re.compile(
-    r"(?:soy\s+(?:melva|melba|mile|eder)\s+live|te\s+escucho\s+en\s+vivo|datos\s+exactos\s+validados|"
-    r"fuente\s+estructurada|tarifa\s+aplicada\s+promedio|paso\s+a\s+modo\s+de\s+espera|"
-    r"subsidio\s+contribuci[oó]n)",
+    r"(?:soy\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder)\s+live|te\s+escucho\s+en\s+vivo|"
+    r"datos\s+exactos\s+validados|fuente\s+estructurada|tarifa\s+aplicada\s+promedio|"
+    r"paso\s+a\s+modo\s+de\s+espera|subsidio\s+contribuci[oó]n)",
     re.IGNORECASE,
 )
 
 PHONETIC_REPLACEMENTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b(do[nñ]a\s+(?:melba|melva))\b", re.IGNORECASE), "Doña Melva"),
     (re.compile(r"\b(melba|melva)\b", re.IGNORECASE), "Melva"),
     (re.compile(r"\b(éder|edher|heber)\b", re.IGNORECASE), "Eder"),
     (re.compile(r"\b(em\s+cali|en\s+cali)\b", re.IGNORECASE), "EMCALI"),
@@ -272,9 +289,9 @@ def describe_voice_capabilities() -> dict[str, Any]:
     eleven_ready = bool(os.getenv("ELEVENLABS_API_KEY", "").strip())
     edge_voice = os.getenv("EMCALI_TTS_VOICE", DEFAULT_EDGE_VOICE).strip() or DEFAULT_EDGE_VOICE
     return {
-        "hotwords_supported": ["Melva", "Oye Melva", "Hola Melva"],
+        "hotwords_supported": ["Doña Melva", "Oye Doña Melva", "Hola Doña Melva"],
         "default_locale": "es-CO",
-        "phonetic_corrections": ["Melva", "EMCALI", "PQR", "PQRS", "kWh", "Ley 1581", "PSE"],
+        "phonetic_corrections": ["Doña Melva", "EMCALI", "PQR", "PQRS", "kWh", "Ley 1581", "PSE"],
         "tts_enabled": True,
         "neural_tts_provider": "elevenlabs" if eleven_ready else f"edge-tts ({edge_voice})",
         "elevenlabs_configured": eleven_ready,
