@@ -519,59 +519,121 @@ export default function App() {
     return false;
   };
 
-  const speakText = (text: string, onEndCallback?: () => void) => {
-    if (!ttsEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const speakWithBrowserFallback = (spokenCleanText: string, onEndCallback?: () => void) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       resumeMicAfterSpeakerOutput(250);
       if (onEndCallback) onEndCallback();
       return;
     }
-    try {
-      const spokenCleanText = text
-        .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (!spokenCleanText) {
-        resumeMicAfterSpeakerOutput(250);
-        if (onEndCallback) onEndCallback();
-        return;
-      }
-
-      // Silenciar el micrófono ANTES de que hablen los altavoces para evitar bucle de eco
-      pauseMicForSpeakerOutput();
-      lastSpokenTtsRef.current = spokenCleanText
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(spokenCleanText);
-      const { voice, isExplicitMale } = selectMaleSpanishVoice();
-      if (voice) {
-        utter.voice = voice;
-        utter.lang = voice.lang;
-      } else {
-        utter.lang = "es-CO";
-      }
-      utter.rate = 1.03;
-      utter.pitch = isExplicitMale ? 0.96 : 0.84;
-      setLiveActivity("speaking");
-      utter.onend = () => {
-        resumeMicAfterSpeakerOutput(750);
-        if (onEndCallback) onEndCallback();
-      };
-      utter.onerror = () => {
-        resumeMicAfterSpeakerOutput(400);
-        if (onEndCallback) onEndCallback();
-      };
-      window.speechSynthesis.speak(utter);
-    } catch {
-      resumeMicAfterSpeakerOutput(300);
-      if (onEndCallback) onEndCallback();
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(spokenCleanText);
+    const voices = window.speechSynthesis.getVoices();
+    const femaleCo =
+      voices.find(
+        (v) =>
+          v.lang.toLowerCase().startsWith("es-co") &&
+          /salome|helena|sabina|paulina|monica|female|woman/i.test(v.name)
+      ) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith("es-co")) ||
+      voices.find(
+        (v) =>
+          v.lang.toLowerCase().startsWith("es") &&
+          /salome|helena|sabina|paulina|monica|elena|laura|female/i.test(v.name)
+      );
+    if (femaleCo) {
+      utter.voice = femaleCo;
+      utter.lang = femaleCo.lang;
+    } else {
+      utter.lang = "es-CO";
     }
+    utter.rate = 1.02;
+    utter.pitch = 1.05;
+    setLiveActivity("speaking");
+    utter.onend = () => {
+      resumeMicAfterSpeakerOutput(750);
+      if (onEndCallback) onEndCallback();
+    };
+    utter.onerror = () => {
+      resumeMicAfterSpeakerOutput(400);
+      if (onEndCallback) onEndCallback();
+    };
+    window.speechSynthesis.speak(utter);
+  };
+
+  const speakText = (text: string, onEndCallback?: () => void) => {
+    if (!ttsEnabled || typeof window === "undefined") {
+      resumeMicAfterSpeakerOutput(250);
+      if (onEndCallback) onEndCallback();
+      return;
+    }
+    const spokenCleanText = text
+      .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!spokenCleanText) {
+      resumeMicAfterSpeakerOutput(250);
+      if (onEndCallback) onEndCallback();
+      return;
+    }
+
+    // Silenciar el micrófono ANTES de que hablen los altavoces para evitar bucle de eco
+    pauseMicForSpeakerOutput();
+    lastSpokenTtsRef.current = spokenCleanText
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    setLiveActivity("speaking");
+    fetch(`${API_BASE}/api/voice/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: spokenCleanText }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          resumeMicAfterSpeakerOutput(700);
+          if (onEndCallback) onEndCallback();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(audioUrl);
+          if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          speakWithBrowserFallback(spokenCleanText, onEndCallback);
+        };
+        audio.play().catch(() => {
+          URL.revokeObjectURL(audioUrl);
+          speakWithBrowserFallback(spokenCleanText, onEndCallback);
+        });
+      })
+      .catch(() => {
+        speakWithBrowserFallback(spokenCleanText, onEndCallback);
+      });
   };
 
   const interruptSpeechBargeIn = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }

@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 import re
 from typing import Any
 
+import requests
 from pydantic import BaseModel, Field
+
+DEFAULT_EDGE_VOICE = "es-CO-SalomeNeural"
+DEFAULT_ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
+DEFAULT_ELEVENLABS_MODEL = "eleven_flash_v2_5"
 
 HOTWORD_ALIASES: tuple[str, ...] = (
     "oye mile",
@@ -210,11 +217,65 @@ def build_tts_speech_summary(markdown_answer: str, *, max_chars: int = 460) -> s
     return (cutoff + ".") if len(cutoff) > 80 else (clean[:max_chars].rstrip() + "...")
 
 
+async def _synthesize_edge_tts_bytes(text: str, voice: str) -> bytes:
+    import edge_tts
+
+    communicate = edge_tts.Communicate(text=text, voice=voice, rate="+2%")
+    chunks: list[bytes] = []
+    async for chunk in communicate.stream():
+        if chunk.get("type") == "audio":
+            data = chunk.get("data")
+            if isinstance(data, bytes):
+                chunks.append(data)
+    return b"".join(chunks)
+
+
+def synthesize_neural_tts(text: str, *, max_chars: int = 550) -> tuple[bytes, str, str]:
+    """Sintetiza voz neural colombiana para Mile (ElevenLabs o Edge es-CO-SalomeNeural)."""
+    clean = build_tts_speech_summary(text, max_chars=max_chars)
+    if not clean:
+        raise ValueError("El texto para síntesis de voz está vacío.")
+
+    eleven_key = os.getenv("ELEVENLABS_API_KEY", "").strip()
+    if eleven_key:
+        voice_id = os.getenv("ELEVENLABS_VOICE_ID", DEFAULT_ELEVENLABS_VOICE_ID).strip()
+        model_id = os.getenv("ELEVENLABS_MODEL_ID", DEFAULT_ELEVENLABS_MODEL).strip()
+        try:
+            resp = requests.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                headers={
+                    "xi-api-key": eleven_key,
+                    "Accept": "audio/mpeg",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "text": clean,
+                    "model_id": model_id,
+                    "voice_settings": {"stability": 0.48, "similarity_boost": 0.78},
+                },
+                timeout=15,
+            )
+            if resp.status_code == 200 and resp.content:
+                return resp.content, "audio/mpeg", f"elevenlabs:{model_id}"
+        except requests.RequestException:
+            pass
+
+    edge_voice = os.getenv("EMCALI_TTS_VOICE", DEFAULT_EDGE_VOICE).strip() or DEFAULT_EDGE_VOICE
+    audio_bytes = asyncio.run(_synthesize_edge_tts_bytes(clean, edge_voice))
+    if not audio_bytes:
+        raise RuntimeError("No se generó audio desde Edge Neural TTS.")
+    return audio_bytes, "audio/mpeg", f"edge-tts:{edge_voice}"
+
+
 def describe_voice_capabilities() -> dict[str, Any]:
     """Devuelve la especificación del módulo de voz y hotword para el frontend."""
+    eleven_ready = bool(os.getenv("ELEVENLABS_API_KEY", "").strip())
+    edge_voice = os.getenv("EMCALI_TTS_VOICE", DEFAULT_EDGE_VOICE).strip() or DEFAULT_EDGE_VOICE
     return {
         "hotwords_supported": ["Mile", "Oye Mile", "Hola Mile"],
         "default_locale": "es-CO",
         "phonetic_corrections": ["Mile", "EMCALI", "PQR", "PQRS", "kWh", "Ley 1581", "PSE"],
         "tts_enabled": True,
+        "neural_tts_provider": "elevenlabs" if eleven_ready else f"edge-tts ({edge_voice})",
+        "elevenlabs_configured": eleven_ready,
     }

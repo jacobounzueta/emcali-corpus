@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -35,6 +35,7 @@ from emcali_corpus.voice import (
     build_tts_speech_summary,
     describe_voice_capabilities,
     parse_voice_hotword_command,
+    synthesize_neural_tts,
 )
 
 SERVER_STARTED_AT = utc_iso()
@@ -77,6 +78,12 @@ class VoiceCommandRequest(BaseModel):
     thread_id: str = Field(default="hilo-demo-m2")
     user_id: str = Field(default="ana-carvajal")
     use_llm: bool = Field(default=True)
+
+
+class VoiceTtsRequest(BaseModel):
+    """Petición de síntesis de voz neural colombiana para Mile (ElevenLabs / Edge TTS)."""
+
+    text: str = Field(min_length=1, max_length=2500)
 
 
 class MemoryUpsertRequest(BaseModel):
@@ -352,6 +359,20 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 yield f"event: {ev_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(_event_generator(), media_type="text/event-stream")
+
+    @app.post("/api/voice/tts")
+    def synthesize_voice_tts(payload: VoiceTtsRequest) -> Response:
+        try:
+            audio_bytes, media_type, provider = synthesize_neural_tts(payload.text)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"TTS no disponible: {exc}") from exc
+        return Response(
+            content=audio_bytes,
+            media_type=media_type,
+            headers={"X-TTS-Provider": provider, "Cache-Control": "no-store"},
+        )
 
     @app.post("/api/voice/command")
     def process_voice_command(payload: VoiceCommandRequest) -> dict[str, Any]:
