@@ -202,10 +202,12 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         version=__version__,
     )
 
+    cors_origins_env = os.getenv("EMCALI_CORS_ORIGINS", "*").strip()
+    cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()] or ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=cors_origins,
+        allow_credentials=cors_origins != ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -233,7 +235,13 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
             },
             "router": {
                 "engine": "System One Gatekeeper (Jev: Choice, Noul, Score, Box)",
-                "routes": ["direct_reply", "structured_tool", "rag_search", "hybrid_multi_tool"],
+                "routes": [
+                    "direct_reply",
+                    "structured_tool",
+                    "rag_search",
+                    "hybrid_multi_tool",
+                    "m3_ops_tool",
+                ],
             },
             "langsmith": {
                 "tracing_enabled": langsmith_enabled,

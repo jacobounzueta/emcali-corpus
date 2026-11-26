@@ -54,7 +54,7 @@ class AssistantReply:
 
 def load_assistant_settings(
     *,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     temperature: float = DEFAULT_TEMPERATURE,
     reasoning_effort: str | None = None,
 ) -> AssistantSettings:
@@ -66,6 +66,7 @@ def load_assistant_settings(
             "No se encontró DEEPSEEK_API_KEY. Agrégala en el archivo .env "
             "(DEEPSEEK_API_KEY=sk-...) o expórtala en tu terminal."
         )
+    resolved_model = (model or os.getenv("DEEPSEEK_MODEL", "").strip() or DEFAULT_MODEL).strip()
     if reasoning_effort is not None and reasoning_effort not in REASONING_EFFORTS:
         raise ValueError(
             f"reasoning_effort={reasoning_effort!r} no es válido. "
@@ -73,19 +74,23 @@ def load_assistant_settings(
         )
     return AssistantSettings(
         api_key=api_key,
-        model=model,
+        model=resolved_model,
         temperature=temperature,
         reasoning_effort=reasoning_effort,
     )
 
 
 def build_chat_model(settings: AssistantSettings | None = None) -> ChatDeepSeek:
-    """Inicializa el modelo ChatDeepSeek con los parámetros indicados."""
+    """Inicializa el modelo ChatDeepSeek con timeout, reintentos y parámetros indicados."""
     resolved = settings or load_assistant_settings()
+    timeout_s = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "30"))
+    max_retries = int(os.getenv("DEEPSEEK_MAX_RETRIES", "2"))
     kwargs: dict[str, Any] = {
         "model": resolved.model,
         "api_key": resolved.api_key,
         "temperature": resolved.temperature,
+        "timeout": timeout_s,
+        "max_retries": max_retries,
     }
     if resolved.reasoning_effort is not None:
         kwargs["reasoning_effort"] = resolved.reasoning_effort

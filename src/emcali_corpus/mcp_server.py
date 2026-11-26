@@ -6,6 +6,7 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
+from langsmith import traceable
 from mcp.server import MCPServer
 
 from emcali_corpus.news_sync import build_daily_newsletter_digest, sync_news_from_gold
@@ -60,6 +61,7 @@ def verificar_identidad_rbac_whatsapp(phone_e164: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+@traceable(run_type="tool", name="mcp.ejecutar_herramienta_emcali", tags=["whatsapp", "mcp"])
 def ejecutar_herramienta_emcali(
     tool_name: str,
     arguments: dict[str, Any] | None = None,
@@ -113,6 +115,7 @@ def _register_all_20_tools() -> None:
             tool_desc = base_desc
 
         def _make_handler(name: str) -> Any:
+            @traceable(run_type="tool", name=f"mcp.{name}", tags=["whatsapp", "mcp"])
             def _handler(
                 arguments: dict[str, Any] | None = None,
                 phone_e164: str = "",
@@ -127,8 +130,9 @@ def _register_all_20_tools() -> None:
                     require_hitl=require_hitl,
                 )
 
-            _handler.__name__ = name
-            return _handler
+            handler: Any = _handler
+            handler.__name__ = name
+            return handler
 
         mcp.tool(name=tool_name, description=tool_desc)(_make_handler(tool_name))
 

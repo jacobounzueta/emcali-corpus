@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -17,9 +18,12 @@ from emcali_corpus.ops_db import (
     MaintenanceCreateRequest,
     ServiceType,
     get_ops_db,
+    utc_now_iso,
 )
 
-LIVE_EMCALI_NEWS_JSON_URL = "https://portalemcali.onrender.com/data/news.json"
+LIVE_EMCALI_NEWS_JSON_URL = os.getenv(
+    "EMCALI_LIVE_NEWS_URL", "https://portalemcali.onrender.com/data/news.json"
+)
 
 MAINTENANCE_KEYWORDS: tuple[str, ...] = (
     "mantenimiento",
@@ -84,7 +88,7 @@ def _extract_publication_date(item: dict[str, Any], raw_md: str, body_text: str)
     m_es = _SPANISH_DATE_RE.search(body_text[:500])
     if m_es:
         return m_es.group(1)
-    return "2026-11-24"
+    return utc_now_iso()[:10]
 
 
 def _read_gold_news_records(corpus_path: Path = config.INDEX_PATH) -> list[dict[str, Any]]:
@@ -197,11 +201,12 @@ def sync_live_emcali_news(
         locations = detect_barrios_in_text(combined, limit=5)
         barrio_names = [loc.barrio for loc in locations]
 
+        today_iso = utc_now_iso()[:10]
         db.upsert_news_item(
             noticia_id=f"LIVE-{slug_id[:24].upper()}",
             titulo=title,
             categoria="Reparaciones y Mantenimientos" if is_maint else cat_raw,
-            fecha_publicacion=date_str or "2026-11-24",
+            fecha_publicacion=date_str or today_iso,
             resumen=(desc or content_str)[:300].replace("\n", " ").strip(),
             contenido=content_str[:3000],
             url=url,
@@ -221,8 +226,8 @@ def sync_live_emcali_news(
                             servicio=_infer_service(combined),
                             barrio=primary_loc.barrio,
                             descripcion=(desc or content_str)[:400],
-                            brigada_asignada="Brigada EMCALI (Feed Oficial 2026)",
-                            inicio_estimado=date_str or "2026-11-24",
+                            brigada_asignada="Brigada EMCALI (Feed Oficial)",
+                            inicio_estimado=date_str or today_iso,
                             fin_estimado="Según programación EMCALI",
                             fuente="scraping_emcali",
                             fuente_url=url,

@@ -111,6 +111,7 @@ export const M3OperationsSuite: React.FC = () => {
   const [maintenances, setMaintenances] = useState<MaintenancePoint[]>([]);
   const [hotspots, setHotspots] = useState<FailureHotspot[]>([]);
   const [pqrsList, setPqrsList] = useState<any[]>([]);
+  const [pqrsEdits, setPqrsEdits] = useState<Record<string, { estado: string; notas: string }>>({});
   const [newsList, setNewsList] = useState<any[]>([]);
   const [newsletterDigest, setNewsletterDigest] = useState<string>("");
   const [toolsCatalog, setToolsCatalog] = useState<ToolCatalogItem[]>([]);
@@ -349,6 +350,29 @@ export const M3OperationsSuite: React.FC = () => {
     }
     setStatusMsg(`✅ PQRS radicada: ${data.ticket.radicado_id}`);
     setPqrsForm({ ...pqrsForm, identificador_valor: "", descripcion: "" });
+    loadMapAndOps();
+  };
+
+  const handleUpdatePqrsStatus = async (
+    radicadoId: string,
+    fallbackEstado: string,
+    fallbackNotas: string
+  ) => {
+    const draft = pqrsEdits[radicadoId] || { estado: fallbackEstado, notas: fallbackNotas };
+    const res = await fetch(`${API_BASE}/api/pqrs/${encodeURIComponent(radicadoId)}`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        nuevo_estado: draft.estado,
+        notas_gestion: draft.notas,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatusMsg(`❌ Error al actualizar PQRS: ${data.detail || "Sin permisos"}`);
+      return;
+    }
+    setStatusMsg(`✅ Radicado ${radicadoId} actualizado a "${data.ticket.estado}".`);
     loadMapAndOps();
   };
 
@@ -984,26 +1008,85 @@ export const M3OperationsSuite: React.FC = () => {
                     <th className="p-2">Identificación</th>
                     <th className="p-2">Barrio</th>
                     <th className="p-2">Estado</th>
+                    {isManager && <th className="p-2">Gestión EMCALI (Manager)</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {pqrsList.slice(0, 10).map((p) => (
-                    <tr key={p.radicado_id}>
-                      <td className="p-2 font-mono font-bold text-[#003B71]">{p.radicado_id}</td>
-                      <td className="p-2">
-                        {p.tipo} · <span className="uppercase">{p.servicio}</span>
-                      </td>
-                      <td className="p-2">
-                        {p.identificador_tipo}: <b>{p.identificador_valor}</b>
-                      </td>
-                      <td className="p-2">{p.barrio}</td>
-                      <td className="p-2">
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
-                          {p.estado}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {pqrsList.slice(0, 15).map((p) => {
+                    const draft = pqrsEdits[p.radicado_id] || {
+                      estado: p.estado,
+                      notas: p.notas_gestion || "",
+                    };
+                    return (
+                      <tr key={p.radicado_id}>
+                        <td className="p-2 font-mono font-bold text-[#003B71]">{p.radicado_id}</td>
+                        <td className="p-2">
+                          {p.tipo} · <span className="uppercase">{p.servicio}</span>
+                        </td>
+                        <td className="p-2">
+                          {p.identificador_tipo}: <b>{p.identificador_valor}</b>
+                        </td>
+                        <td className="p-2">{p.barrio}</td>
+                        <td className="p-2">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
+                            {p.estado}
+                          </span>
+                          {p.notas_gestion && (
+                            <p className="text-[10px] text-slate-500 mt-0.5 max-w-[160px] truncate" title={p.notas_gestion}>
+                              {p.notas_gestion}
+                            </p>
+                          )}
+                        </td>
+                        {isManager && (
+                          <td className="p-2">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <select
+                                value={draft.estado}
+                                onChange={(e) =>
+                                  setPqrsEdits((prev) => ({
+                                    ...prev,
+                                    [p.radicado_id]: { ...draft, estado: e.target.value },
+                                  }))
+                                }
+                                className="rounded border border-slate-300 px-1.5 py-1 text-[11px] bg-white"
+                              >
+                                <option value="Radicado">Radicado</option>
+                                <option value="En gestión">En gestión</option>
+                                <option value="Escalado">Escalado</option>
+                                <option value="Resuelto">Resuelto</option>
+                                <option value="Cerrado">Cerrado</option>
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="Nota de gestión..."
+                                value={draft.notas}
+                                onChange={(e) =>
+                                  setPqrsEdits((prev) => ({
+                                    ...prev,
+                                    [p.radicado_id]: { ...draft, notas: e.target.value },
+                                  }))
+                                }
+                                className="rounded border border-slate-300 px-1.5 py-1 text-[11px] w-28"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdatePqrsStatus(
+                                    p.radicado_id,
+                                    p.estado,
+                                    p.notas_gestion || ""
+                                  )
+                                }
+                                className="px-2 py-1 rounded bg-[#003B71] hover:bg-[#00284d] text-white text-[11px] font-semibold cursor-pointer"
+                              >
+                                Guardar
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

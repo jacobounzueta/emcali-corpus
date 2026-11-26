@@ -567,7 +567,7 @@ class EmcaliOpsDatabase:
                 "Por favor verifica el barrio o indica la comuna."
             )
         now = utc_now_iso()
-        radicado_id = f"PQRS-2026-{uuid.uuid4().hex[:6].upper()}"
+        radicado_id = f"PQRS-{now[:4]}-{uuid.uuid4().hex[:6].upper()}"
         prioridad = "Alta" if req.tipo in {"Reclamo", "Queja"} else "Normal"
         with self._lock:
             self._conn.execute(
@@ -675,7 +675,7 @@ class EmcaliOpsDatabase:
                 "Verifica el nombre del barrio o indica tu comuna."
             )
         now = utc_now_iso()
-        reporte_id = f"FALLA-2026-{uuid.uuid4().hex[:6].upper()}"
+        reporte_id = f"FALLA-{now[:4]}-{uuid.uuid4().hex[:6].upper()}"
         barrio_name = loc.barrio if loc.barrio != "Cali (Centro)" else req.barrio.strip()
         with self._lock:
             self._conn.execute(
@@ -808,7 +808,7 @@ class EmcaliOpsDatabase:
                 f"El barrio '{req.barrio}' no figura en la cobertura oficial de EMCALI."
             )
         now = utc_now_iso()
-        maint_id = f"MANT-2026-{uuid.uuid4().hex[:6].upper()}"
+        maint_id = f"MANT-{now[:4]}-{uuid.uuid4().hex[:6].upper()}"
         barrio_name = loc.barrio if loc.barrio != "Cali (Centro)" else req.barrio.strip()
         with self._lock:
             self._conn.execute(

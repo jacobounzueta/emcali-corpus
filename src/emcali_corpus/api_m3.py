@@ -468,6 +468,7 @@ def dispatch_crew_endpoint(
     phones = list(maint.get("notifiable_phones", []))
     notified = 0
     if phones:
+        public_url = os.getenv("EMCALI_PUBLIC_URL", "https://172-183-55-204.sslip.io").rstrip("/")
         msg = (
             "🚑 *Actualización EMCALI — Brigada Despachada*\n"
             f"Se activó atención prioritaria de *{maint['servicio'].upper()}* "
@@ -475,7 +476,7 @@ def dispatch_crew_endpoint(
             f"• Radicado de mantenimiento: `{maint['mantenimiento_id']}`\n"
             f"• Brigada asignada: *{maint['brigada_asignada']}*\n"
             f"• Fecha y hora: `{maint['inicio_estimado']}`\n"
-            "Puedes seguir el estado en vivo en https://172-183-55-204.sslip.io"
+            f"Puedes seguir el estado en vivo en {public_url}"
         )
         notified = _send_whatsapp_notifications_async(phones, msg)
     maint["whatsapp_notifications_queued"] = notified
