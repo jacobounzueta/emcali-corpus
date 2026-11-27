@@ -6,6 +6,7 @@ import contextlib
 import json
 import os
 import re
+import sqlite3
 import subprocess
 from pathlib import Path
 from typing import Any, Literal
@@ -752,3 +753,200 @@ def admin_remove_whatsapp_allowlist(
     nums = [n for n in _read_whatsapp_allowlist() if n != phone_e164.strip()]
     updated = _write_whatsapp_allowlist(nums)
     return {"status": "removed", "phone_e164": phone_e164, "allowFrom": updated}
+
+
+class WhatsAppPolicyRequest(BaseModel):
+    dm_policy: Literal["open", "allowlist"]
+
+
+@router.get("/admin/whatsapp/policy")
+def admin_get_whatsapp_policy(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    _require_manager(authorization)
+    policy = "allowlist"
+    allow_from: list[str] = []
+    if OPENCLAW_CONFIG_PATH.is_file():
+        raw = json.loads(OPENCLAW_CONFIG_PATH.read_text(encoding="utf-8"))
+        wa = raw.get("channels", {}).get("whatsapp", {})
+        policy = str(wa.get("dmPolicy", "allowlist"))
+        allow_from = [str(x) for x in wa.get("allowFrom", [])]
+    return {"dm_policy": policy, "allowFrom": allow_from}
+
+
+@router.post("/admin/whatsapp/policy")
+def admin_set_whatsapp_policy(
+    payload: WhatsAppPolicyRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_manager(authorization)
+    if OPENCLAW_CONFIG_PATH.is_file():
+        raw = json.loads(OPENCLAW_CONFIG_PATH.read_text(encoding="utf-8"))
+        wa = raw.setdefault("channels", {}).setdefault("whatsapp", {})
+        wa["dmPolicy"] = payload.dm_policy
+        if payload.dm_policy == "open":
+            wa["allowFrom"] = ["*"]
+        else:
+            existing = [str(x) for x in wa.get("allowFrom", []) if str(x).strip() != "*"]
+            wa["allowFrom"] = sorted(dict.fromkeys(existing))
+        OPENCLAW_CONFIG_PATH.write_text(
+            json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        _reload_openclaw_whatsapp_sync()
+    return {"status": "updated", "dm_policy": payload.dm_policy}
+
+
+_WA_SENDER_RE = re.compile(r"(\+\d{8,15})")
+
+
+def _read_openclaw_whatsapp_interactions(limit: int = 80) -> list[dict[str, Any]]:
+    """Lee en modo solo-lectura las conversaciones de WhatsApp desde openclaw-agent.sqlite."""
+    agent_db = Path.home() / ".openclaw" / "agents" / "main" / "agent" / "openclaw-agent.sqlite"
+    if not agent_db.is_file():
+        return []
+    interactions: list[dict[str, Any]] = []
+    try:
+        conn = sqlite3.connect(f"file:{agent_db}?mode=ro", uri=True, timeout=3.0)
+        rows = conn.execute(
+            """
+            SELECT te.session_id, te.seq, te.created_at, te.event_json
+            FROM transcript_events te
+            JOIN session_windows sw ON sw.session_id = te.session_id
+            WHERE sw.channel = 'whatsapp'
+            ORDER BY te.created_at ASC
+            """
+        ).fetchall()
+        conn.close()
+    except sqlite3.Error:
+        return []
+
+    pending_user: dict[str, Any] | None = None
+    last_known_sender = "whatsapp-ciudadano"
+    for sess_id, seq, created_ms, raw_json in rows:
+        try:
+            ev = json.loads(raw_json)
+        except json.JSONDecodeError:
+            continue
+        if ev.get("type") != "message":
+            continue
+        msg = ev.get("message") or {}
+        role = str(msg.get("role", ""))
+        ts = str(ev.get("timestamp") or "")
+        content = msg.get("content")
+        if role == "user":
+            if isinstance(content, str):
+                text = content.strip()
+            elif isinstance(content, list):
+                text = " ".join(
+                    str(c.get("text", ""))
+                    for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
+                ).strip()
+            else:
+                text = ""
+            m_phone = _WA_SENDER_RE.search(raw_json)
+            if m_phone:
+                last_known_sender = m_phone.group(1)
+            if text:
+                pending_user = {
+                    "trace_id": f"WA-{str(sess_id)[:6]}-{seq}",
+                    "channel": "whatsapp",
+                    "user_id": last_known_sender,
+                    "user_role": "whatsapp",
+                    "thread_id": str(sess_id),
+                    "question": text,
+                    "created_at": ts,
+                    "created_ms": int(created_ms or 0),
+                }
+        elif role == "assistant" and pending_user is not None:
+            ans_parts: list[str] = []
+            thinking_parts: list[str] = []
+            tools_used: list[str] = []
+            if isinstance(content, str):
+                ans_parts.append(content)
+            elif isinstance(content, list):
+                for block in content:
+                    if not isinstance(block, dict):
+                        continue
+                    btype = block.get("type")
+                    if btype == "text" and block.get("text"):
+                        ans_parts.append(str(block["text"]))
+                    elif btype == "thinking" and block.get("thinking"):
+                        thinking_parts.append(str(block["thinking"]))
+                        m_phone = _WA_SENDER_RE.search(str(block["thinking"]))
+                        if m_phone:
+                            pending_user["user_id"] = m_phone.group(1)
+                            last_known_sender = m_phone.group(1)
+                    elif btype in {"toolCall", "tool_use"} and block.get("name"):
+                        tools_used.append(str(block["name"]))
+            ans_text = "\n".join(ans_parts).strip()
+            if ans_text:
+                lat_ms = max(0, int(created_ms or 0) - int(pending_user.get("created_ms", 0)))
+                interactions.append(
+                    {
+                        "trace_id": pending_user["trace_id"],
+                        "channel": "whatsapp",
+                        "user_id": pending_user["user_id"],
+                        "user_role": "whatsapp",
+                        "thread_id": pending_user["thread_id"],
+                        "route": "openclaw_mcp",
+                        "tools_used": tools_used,
+                        "latency_ms": lat_ms if lat_ms < 120_000 else 0,
+                        "question": pending_user["question"],
+                        "answer": ans_text,
+                        "thinking": "\n".join(thinking_parts).strip(),
+                        "created_at": ts or pending_user["created_at"],
+                    }
+                )
+                pending_user = None
+
+    interactions.reverse()
+    return interactions[:limit]
+
+
+@router.get("/admin/interactions")
+def admin_list_interactions(
+    channel: str = "todos",
+    user: str = "todos",
+    limit: int = 80,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Panel de observabilidad tipo LangSmith: trazas unificadas de Web y WhatsApp por usuario."""
+    _require_manager(authorization)
+    db = get_ops_db()
+    web_items = (
+        db.list_interaction_traces(channel="web", user_id=None, limit=limit)
+        if channel in {"todos", "web"}
+        else []
+    )
+    wa_items = (
+        _read_openclaw_whatsapp_interactions(limit=limit)
+        if channel in {"todos", "whatsapp"}
+        else []
+    )
+    merged = [*web_items, *wa_items]
+    merged.sort(key=lambda x: str(x.get("created_at", "")), reverse=True)
+
+    all_users = sorted({str(x.get("user_id", "anonimo")) for x in merged})
+    if user and user != "todos":
+        needle = user.strip().lower()
+        merged = [x for x in merged if needle in str(x.get("user_id", "")).lower()]
+
+    merged = merged[:limit]
+    latencies = [int(x.get("latency_ms", 0)) for x in merged if int(x.get("latency_ms", 0)) > 0]
+    tool_counts: dict[str, int] = {}
+    for item in merged:
+        for tool_name in item.get("tools_used", []):
+            tool_counts[tool_name] = tool_counts.get(tool_name, 0) + 1
+
+    return {
+        "kpis": {
+            "total_interactions": len(merged),
+            "web_interactions": sum(1 for x in merged if x.get("channel") == "web"),
+            "whatsapp_interactions": sum(1 for x in merged if x.get("channel") == "whatsapp"),
+            "unique_users": len({str(x.get("user_id", "")) for x in merged}),
+            "avg_latency_ms": round(sum(latencies) / len(latencies)) if latencies else 0,
+            "top_tools": sorted(tool_counts.items(), key=lambda kv: kv[1], reverse=True)[:8],
+        },
+        "users": all_users,
+        "items": merged,
+    }

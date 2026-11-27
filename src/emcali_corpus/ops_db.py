@@ -275,6 +275,23 @@ class EmcaliOpsDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_chat_logs_owner
                     ON user_chat_logs (owner_id, id);
+
+                CREATE TABLE IF NOT EXISTS interaction_traces (
+                    trace_id TEXT PRIMARY KEY,
+                    channel TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    user_role TEXT NOT NULL DEFAULT 'citizen',
+                    thread_id TEXT NOT NULL DEFAULT '',
+                    route TEXT NOT NULL DEFAULT '',
+                    tools_used_json TEXT NOT NULL DEFAULT '[]',
+                    latency_ms INTEGER NOT NULL DEFAULT 0,
+                    question TEXT NOT NULL,
+                    answer TEXT NOT NULL,
+                    thinking TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_traces_channel_user
+                    ON interaction_traces (channel, user_id, created_at);
                 """
             )
             self._conn.commit()
@@ -1334,6 +1351,86 @@ class EmcaliOpsDatabase:
             )
             self._conn.commit()
             return cur.rowcount
+
+    # ------------------------------------------------------------------
+    # Observabilidad tipo LangSmith (Trazas Web + WhatsApp)
+    # ------------------------------------------------------------------
+    def log_interaction_trace(
+        self,
+        *,
+        channel: str,
+        user_id: str,
+        user_role: str,
+        question: str,
+        answer: str,
+        thread_id: str = "",
+        route: str = "",
+        tools_used: list[str] | None = None,
+        latency_ms: int = 0,
+        thinking: str = "",
+    ) -> dict[str, Any]:
+        trace_id = f"TRC-{uuid.uuid4().hex[:10].upper()}"
+        now = utc_now_iso()
+        clean_tools = [str(t) for t in (tools_used or []) if str(t).strip()]
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO interaction_traces (
+                    trace_id, channel, user_id, user_role, thread_id, route,
+                    tools_used_json, latency_ms, question, answer, thinking, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    trace_id,
+                    channel,
+                    user_id.strip() or "anonimo",
+                    user_role,
+                    thread_id,
+                    route,
+                    json.dumps(clean_tools, ensure_ascii=False),
+                    max(0, int(latency_ms)),
+                    question,
+                    answer,
+                    thinking,
+                    now,
+                ),
+            )
+            self._conn.commit()
+        return {"trace_id": trace_id, "created_at": now}
+
+    def list_interaction_traces(
+        self,
+        *,
+        channel: str | None = None,
+        user_id: str | None = None,
+        limit: int = 120,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if channel and channel != "todos":
+            clauses.append("channel = ?")
+            params.append(channel)
+        if user_id and user_id != "todos":
+            clauses.append("LOWER(user_id) LIKE ?")
+            params.append(f"%{user_id.strip().lower()}%")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(limit)
+        with self._lock:
+            rows = self._conn.execute(
+                f"""
+                SELECT * FROM interaction_traces
+                {where}
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            item = dict(r)
+            item["tools_used"] = json.loads(item.pop("tools_used_json", "[]") or "[]")
+            out.append(item)
+        return out
 
     # ------------------------------------------------------------------
     # Resumen Ejecutivo de Operaciones (RBAC Manager)

@@ -529,6 +529,14 @@ export default function App() {
     // 2. Evitar capturar frases propias del asistente TTS por los altavoces
     const selfPhrases = [
       "soy melva",
+      "soy doña melva",
+      "soy dona melva",
+      "aqui doña melva",
+      "aquí doña melva",
+      "listo vecino",
+      "te deje el detalle",
+      "te dejé el detalle",
+      "en la tabla del chat",
       "soy eder",
       "te escucho en vivo",
       "datos exactos validados",
@@ -541,6 +549,7 @@ export default function App() {
       "segun los registros",
       "según los registros",
       "fuentes oficiales",
+      "emcali e i c e",
     ];
     if (selfPhrases.some((p) => clean.includes(p))) {
       return true;
@@ -1024,7 +1033,7 @@ export default function App() {
   const handleTopBarLogout = () => {
     localStorage.removeItem("emcali_auth_session");
     window.dispatchEvent(new Event("emcali-auth-changed"));
-    if (activeSection === "iam") {
+    if (activeSection === "iam" || activeSection === "observability") {
       setActiveSection("map_reports");
     }
   };
@@ -1039,6 +1048,7 @@ export default function App() {
     sec === "pqrs" ||
     sec === "news" ||
     sec === "umap_tools" ||
+    sec === "observability" ||
     sec === "iam" ||
     sec === "auth";
 
@@ -1124,6 +1134,13 @@ export default function App() {
             <div className="px-3.5 text-[10px] font-extrabold uppercase tracking-widest text-[#B45309]">
               Gestión EMCALI
             </div>
+            <button
+              onClick={() => navigateToSection("observability")}
+              className={sidebarItemClass("observability")}
+            >
+              <Activity className="w-4 h-4 shrink-0 text-[#F5820D]" />
+              <span>Panel Gestión &amp; Trazas</span>
+            </button>
             <button
               onClick={() => navigateToSection("iam")}
               className={sidebarItemClass("iam")}
@@ -1262,9 +1279,19 @@ export default function App() {
 
             <button
               type="button"
-              onClick={() => navigateToSection("map_reports")}
+              onClick={() => {
+                navigateToSection("map_reports");
+                window.setTimeout(() => {
+                  const formEl = document.getElementById("reportar-falla-form");
+                  if (formEl) {
+                    formEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                    const firstInput = formEl.querySelector("input, select, textarea") as HTMLElement | null;
+                    if (firstInput) firstInput.focus();
+                  }
+                }, 140);
+              }}
               className="hidden sm:flex px-4 py-2 rounded-full bg-[#F5820D] hover:bg-[#DC7006] text-white text-xs font-bold transition cursor-pointer shadow-xs items-center gap-1.5"
-              title="Reportar una falla o ver mantenimientos en el mapa"
+              title="Ir al formulario para reportar una falla de servicio en Cali"
             >
               <span>Reportar Falla</span>
               <span aria-hidden="true">↗</span>

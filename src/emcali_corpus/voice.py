@@ -63,9 +63,11 @@ SLEEP_REGEX = re.compile(
 )
 
 SELF_ECHO_REGEX = re.compile(
-    r"(?:soy\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder)\s+live|te\s+escucho\s+en\s+vivo|"
-    r"datos\s+exactos\s+validados|fuente\s+estructurada|tarifa\s+aplicada\s+promedio|"
-    r"paso\s+a\s+modo\s+de\s+espera|subsidio\s+contribuci[oó]n)",
+    r"(?:soy\s+(?:(?:do[nñ]a\s+)?(?:melva|melba)|mile|eder)(?:\s+live)?|"
+    r"aqu[ií]\s+do[nñ]a\s+melva|listo\s+vecino|te\s+dej[eé]\s+el\s+detalle\s+en\s+la\s+tabla|"
+    r"te\s+escucho\s+en\s+vivo|datos\s+exactos\s+validados|fuente\s+estructurada|"
+    r"tarifa\s+aplicada\s+promedio|paso\s+a\s+modo\s+de\s+espera|"
+    r"subsidio\s+contribuci[oó]n|emcali\s+e\s+i\s+c\s+e)",
     re.IGNORECASE,
 )
 

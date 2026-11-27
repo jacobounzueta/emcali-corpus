@@ -78,7 +78,14 @@ const UMAP_SECTION_COLORS: Record<string, string> = {
   otros: "#94a3b8",
 };
 
-export type M3Section = "map_reports" | "pqrs" | "news" | "umap_tools" | "iam" | "auth";
+export type M3Section =
+  | "map_reports"
+  | "pqrs"
+  | "news"
+  | "umap_tools"
+  | "observability"
+  | "iam"
+  | "auth";
 
 interface M3OperationsSuiteProps {
   activeSection: M3Section;
@@ -167,6 +174,23 @@ export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
   });
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [waAllowlist, setWaAllowlist] = useState<string[]>([]);
+  const [waDmPolicy, setWaDmPolicy] = useState<"open" | "allowlist">("allowlist");
+  const [traceChannel, setTraceChannel] = useState<"todos" | "web" | "whatsapp">("todos");
+  const [traceUser, setTraceUser] = useState<string>("todos");
+  const [traceData, setTraceData] = useState<{
+    kpis: {
+      total_interactions: number;
+      web_interactions: number;
+      whatsapp_interactions: number;
+      unique_users: number;
+      avg_latency_ms: number;
+      top_tools: [string, number][];
+    };
+    users: string[];
+    items: any[];
+  } | null>(null);
+  const [expandedTraceId, setExpandedTraceId] = useState<string | null>(null);
+  const [loadingTraces, setLoadingTraces] = useState(false);
   const [newWaPhone, setNewWaPhone] = useState("+57");
   const [newUserForm, setNewUserForm] = useState({
     username: "",
@@ -269,9 +293,10 @@ export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
   const loadAdminIam = useCallback(async () => {
     if (!session.token || session.role !== "manager") return;
     try {
-      const [uRes, waRes] = await Promise.all([
+      const [uRes, waRes, polRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() }),
         fetch(`${API_BASE}/api/admin/whatsapp/allowlist`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/admin/whatsapp/policy`, { headers: authHeaders() }),
       ]);
       if (uRes.ok) {
         const d = await uRes.json();
@@ -281,10 +306,56 @@ export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
         const d = await waRes.json();
         setWaAllowlist(d.allowFrom || []);
       }
+      if (polRes.ok) {
+        const d = await polRes.json();
+        if (d.dm_policy === "open" || d.dm_policy === "allowlist") {
+          setWaDmPolicy(d.dm_policy);
+        }
+      }
     } catch {
       // silent
     }
   }, [session.token, session.role, authHeaders]);
+
+  const loadInteractions = useCallback(
+    async (channel = traceChannel, user = traceUser) => {
+      if (!session.token || session.role !== "manager") return;
+      try {
+        setLoadingTraces(true);
+        const res = await fetch(
+          `${API_BASE}/api/admin/interactions?channel=${encodeURIComponent(
+            channel
+          )}&user=${encodeURIComponent(user)}&limit=80`,
+          { headers: authHeaders() }
+        );
+        if (res.ok) {
+          setTraceData(await res.json());
+        }
+      } catch {
+        // silent
+      } finally {
+        setLoadingTraces(false);
+      }
+    },
+    [session.token, session.role, authHeaders, traceChannel, traceUser]
+  );
+
+  const handleToggleWhatsappPolicy = async (nextPolicy: "open" | "allowlist") => {
+    const res = await fetch(`${API_BASE}/api/admin/whatsapp/policy`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ dm_policy: nextPolicy }),
+    });
+    if (res.ok) {
+      setWaDmPolicy(nextPolicy);
+      setStatusMsg(
+        nextPolicy === "open"
+          ? "🌐 WhatsApp abierto a todo el público (RBAC manager sigue protegido por teléfono)."
+          : "🔒 WhatsApp restringido a Allowlist E.164."
+      );
+      loadAdminIam();
+    }
+  };
 
   useEffect(() => {
     loadMapAndOps();
@@ -309,8 +380,23 @@ export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
   useEffect(() => {
     if (activeSection === "news") loadNewsAndDigest();
     if (activeSection === "umap_tools" && !umapData) loadCatalogAndUmap(false);
-    if (activeSection === "iam" && isManager) loadAdminIam();
-  }, [activeSection, loadNewsAndDigest, loadCatalogAndUmap, umapData, isManager, loadAdminIam]);
+    if ((activeSection === "iam" || activeSection === "observability") && isManager) {
+      loadAdminIam();
+    }
+    if (activeSection === "observability" && isManager) {
+      loadInteractions(traceChannel, traceUser);
+    }
+  }, [
+    activeSection,
+    loadNewsAndDigest,
+    loadCatalogAndUmap,
+    umapData,
+    isManager,
+    loadAdminIam,
+    loadInteractions,
+    traceChannel,
+    traceUser,
+  ]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -691,6 +777,10 @@ export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
       eyebrow: "Gestión Interna EMCALI · RBAC & HITL",
       title: "IAM Usuarios, WhatsApp Allowlist y Aprobaciones HITL",
     },
+    observability: {
+      eyebrow: "Observabilidad & Auditoría Estilo LangSmith",
+      title: "Panel de Gestión & Trazas (Web + WhatsApp)",
+    },
     auth: {
       eyebrow: "Mi Cuenta EMCALI",
       title: "Iniciar Sesión o Crear Cuenta Ciudadana",
@@ -968,8 +1058,9 @@ export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
           {/* Formulario rápido de Reporte de Falla + Tabla de Reportes Ciudadanos */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <form
+              id="reportar-falla-form"
               onSubmit={handleCreateFailure}
-              className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3 text-xs"
+              className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-3 text-xs scroll-mt-24"
             >
               <div>
                 <div className="text-[11px] font-semibold text-[#DC7006]">Alerta Ciudadana</div>
@@ -1910,6 +2001,241 @@ export const M3OperationsSuite: React.FC<M3OperationsSuiteProps> = ({
                   ))}
                 </div>
               </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECCIÓN GESTIÓN: PANEL DE OBSERVABILIDAD ESTILO LANGSMITH (WEB + WHATSAPP) */}
+      {activeSection === "observability" && isManager && (
+        <div className="space-y-5">
+          {/* Control de acceso público WhatsApp + Encabezado */}
+          <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold text-[#579624]">
+                Observabilidad &amp; Auditoría Estilo LangSmith
+              </div>
+              <div className="w-8 h-0.5 bg-[#579624] rounded-full my-1" />
+              <h3 className="text-xl font-extrabold tracking-tight text-[#141B12]">
+                📊 Panel de Gestión &amp; Trazas (Web + WhatsApp)
+              </h3>
+              <p className="text-xs text-[#5B6757] mt-1">
+                Inspecciona en vivo las conversaciones por usuario, herramientas invocadas, razonamiento y latencia en ambos canales.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`px-3 py-1.5 rounded-full text-xs font-extrabold border ${
+                  waDmPolicy === "open"
+                    ? "bg-[#EEF6E6] text-[#2D5211] border-[#CDE3B4]"
+                    : "bg-amber-50 text-amber-900 border-amber-200"
+                }`}
+              >
+                WhatsApp: {waDmPolicy === "open" ? "🌐 Abierto a todos" : "🔒 Solo Allowlist"}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleToggleWhatsappPolicy(waDmPolicy === "open" ? "allowlist" : "open")
+                }
+                className="px-3.5 py-1.5 rounded-full bg-[#141B12] hover:bg-[#2A3327] text-white text-xs font-bold cursor-pointer"
+              >
+                {waDmPolicy === "open" ? "Cambiar a Allowlist" : "Abrir WhatsApp a Todos"}
+              </button>
+              <button
+                type="button"
+                onClick={() => loadInteractions(traceChannel, traceUser)}
+                disabled={loadingTraces}
+                className="px-3.5 py-1.5 rounded-full bg-[#579624] hover:bg-[#477D1C] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingTraces ? "animate-spin" : ""}`} />
+                Actualizar Trazas
+              </button>
+            </div>
+          </div>
+
+          {/* KPIs */}
+          {traceData && (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              <div className="bg-white rounded-2xl border border-[#DDE5D7] p-4">
+                <div className="text-[11px] font-bold text-[#5B6757]">Total Interacciones</div>
+                <div className="text-2xl font-extrabold text-[#141B12] mt-1">
+                  {traceData.kpis.total_interactions}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-[#DDE5D7] p-4">
+                <div className="text-[11px] font-bold text-[#579624]">💬 WhatsApp</div>
+                <div className="text-2xl font-extrabold text-[#2D5211] mt-1">
+                  {traceData.kpis.whatsapp_interactions}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-[#DDE5D7] p-4">
+                <div className="text-[11px] font-bold text-sky-700">🌐 Portal Web</div>
+                <div className="text-2xl font-extrabold text-sky-900 mt-1">
+                  {traceData.kpis.web_interactions}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-[#DDE5D7] p-4">
+                <div className="text-[11px] font-bold text-[#5B6757]">Usuarios Únicos</div>
+                <div className="text-2xl font-extrabold text-[#141B12] mt-1">
+                  {traceData.kpis.unique_users}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-[#DDE5D7] p-4">
+                <div className="text-[11px] font-bold text-[#DC7006]">Latencia Promedio</div>
+                <div className="text-2xl font-extrabold text-[#141B12] mt-1">
+                  {traceData.kpis.avg_latency_ms} ms
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filtros por Canal y Usuario */}
+          <div className="bg-white rounded-3xl border border-[#DDE5D7] p-5 shadow-[0_2px_12px_rgba(20,27,18,0.05)] space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {(["todos", "whatsapp", "web"] as const).map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    onClick={() => setTraceChannel(ch)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition cursor-pointer ${
+                      traceChannel === ch
+                        ? "bg-[#579624] text-white border-[#579624]"
+                        : "bg-[#F7FAF4] text-[#141B12] border-[#DDE5D7] hover:bg-[#EEF6E6]"
+                    }`}
+                  >
+                    {ch === "todos" ? "Todos los canales" : ch === "whatsapp" ? "💬 WhatsApp" : "🌐 Web"}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-bold text-[#5B6757]">Filtrar por usuario / teléfono:</span>
+                <select
+                  value={traceUser}
+                  onChange={(e) => setTraceUser(e.target.value)}
+                  className="px-3 py-1.5 rounded-full bg-[#F7FAF4] border border-[#DDE5D7] text-[#141B12] font-semibold"
+                >
+                  <option value="todos">Todos los usuarios</option>
+                  {(traceData?.users || []).map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {traceData && traceData.kpis.top_tools.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="font-bold text-[#5B6757] mr-1">Top Tools:</span>
+                {traceData.kpis.top_tools.map(([name, count]) => (
+                  <span
+                    key={name}
+                    className="px-2.5 py-0.5 rounded-full bg-[#EEF6E6] text-[#2D5211] border border-[#CDE3B4] font-mono font-semibold"
+                  >
+                    {name} ({count})
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Lista de Trazas */}
+            <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
+              {(traceData?.items || []).length === 0 ? (
+                <p className="text-xs text-[#5B6757] py-6 text-center">
+                  No hay interacciones registradas con los filtros actuales.
+                </p>
+              ) : (
+                (traceData?.items || []).map((t) => {
+                  const isOpen = expandedTraceId === t.trace_id;
+                  return (
+                    <div
+                      key={t.trace_id}
+                      className="rounded-2xl border border-[#DDE5D7] bg-[#F7FAF4]/70 overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setExpandedTraceId(isOpen ? null : t.trace_id)}
+                        className="w-full p-3.5 text-left flex flex-wrap items-center justify-between gap-2 hover:bg-[#EEF6E6]/60 transition cursor-pointer"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              t.channel === "whatsapp"
+                                ? "bg-[#579624] text-white"
+                                : "bg-sky-600 text-white"
+                            }`}
+                          >
+                            {t.channel === "whatsapp" ? "💬 WhatsApp" : "🌐 Web"}
+                          </span>
+                          <span className="font-mono text-xs font-bold text-[#141B12]">
+                            {t.user_id}
+                          </span>
+                          {t.route && (
+                            <span className="px-2 py-0.5 rounded-full bg-[#FACC15]/40 text-[#141B12] text-[10px] font-bold font-mono">
+                              {t.route}
+                            </span>
+                          )}
+                          <span className="text-xs text-[#334155] truncate max-w-[420px]">
+                            “{t.question}”
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-[#5B6757] shrink-0">
+                          {t.latency_ms > 0 && (
+                            <span className="font-mono font-semibold">{t.latency_ms} ms</span>
+                          )}
+                          <span>
+                            {t.created_at ? String(t.created_at).replace("T", " ").slice(0, 16) : ""}
+                          </span>
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="px-4 pb-4 pt-2 border-t border-[#DDE5D7] bg-white space-y-2.5 text-xs">
+                          <div>
+                            <div className="text-[10px] font-extrabold uppercase text-[#5B6757]">
+                              Consulta del Usuario ({t.user_id})
+                            </div>
+                            <p className="mt-1 p-2.5 rounded-xl bg-[#F3F6F1] text-[#141B12] whitespace-pre-wrap">
+                              {t.question}
+                            </p>
+                          </div>
+                          {t.tools_used && t.tools_used.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {t.tools_used.map((tool: string, idx: number) => (
+                                <span
+                                  key={`${tool}-${idx}`}
+                                  className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 font-mono text-[11px] font-semibold"
+                                >
+                                  🔧 {tool}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {t.thinking && (
+                            <div>
+                              <div className="text-[10px] font-extrabold uppercase text-purple-700">
+                                Razonamiento / Trace Thinking
+                              </div>
+                              <p className="mt-1 p-2.5 rounded-xl bg-purple-50/70 border border-purple-100 text-purple-950 text-[11px] whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                {t.thinking}
+                              </p>
+                            </div>
+                          )}
+                          <div>
+                            <div className="text-[10px] font-extrabold uppercase text-[#2D5211]">
+                              Respuesta de Doña Melva
+                            </div>
+                            <p className="mt-1 p-2.5 rounded-xl bg-[#EEF6E6]/60 border border-[#CDE3B4] text-[#141B12] whitespace-pre-wrap max-h-60 overflow-y-auto">
+                              {t.answer}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}

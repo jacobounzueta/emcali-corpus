@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Iterator
 from typing import Any, Literal
 
@@ -334,6 +335,7 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         owner = username if username != "ciudadano-publico" else payload.user_id
 
         def _event_generator() -> Iterator[str]:
+            t_start = time.perf_counter()
             ops_db = get_ops_db()
             ops_db.append_chat_message(
                 owner_id=owner, thread_id=payload.thread_id, role="user", content=payload.question
@@ -352,11 +354,30 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 data = packet["data"]
                 if ev_type == "done":
                     ans_text = str(data.get("answer", ""))
+                    latency_ms = int((time.perf_counter() - t_start) * 1000)
+                    router_choice = str((data.get("router") or {}).get("choice", ""))
+                    tools_used = [
+                        str(t.get("tool", t.get("name", "")))
+                        for t in (data.get("structured_reports") or [])
+                        if isinstance(t, dict)
+                    ]
                     ops_db.append_chat_message(
                         owner_id=owner,
                         thread_id=payload.thread_id,
                         role="assistant",
                         content=ans_text,
+                    )
+                    ops_db.log_interaction_trace(
+                        channel="web",
+                        user_id=owner,
+                        user_role=role,
+                        thread_id=payload.thread_id,
+                        route=router_choice,
+                        tools_used=tools_used,
+                        latency_ms=latency_ms,
+                        question=payload.question,
+                        answer=ans_text,
+                        thinking=str(data.get("reasoning", "")),
                     )
                     data["tts_speech_text"] = build_tts_speech_summary(ans_text)
                     data["server_pid"] = SERVER_PID
