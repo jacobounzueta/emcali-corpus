@@ -11,7 +11,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from emcali_corpus.news_sync import (
@@ -950,3 +951,102 @@ def admin_list_interactions(
         "users": all_users,
         "items": merged,
     }
+
+
+# ---------------------------------------------------------------------------
+# Meta WhatsApp Cloud API Webhook (Canal Paralelo Oficial sin tocar eSIM)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/whatsapp/meta-webhook")
+def meta_whatsapp_webhook_verify(
+    hub_mode: str = Query(default="", alias="hub.mode"),
+    hub_verify_token: str = Query(default="", alias="hub.verify_token"),
+    hub_challenge: str = Query(default="", alias="hub.challenge"),
+) -> PlainTextResponse:
+    """Handshake oficial de verificación de Webhook para Meta Developers (WhatsApp Cloud API)."""
+    expected = os.getenv("META_WHATSAPP_VERIFY_TOKEN", "emcali-melva-meta-2026").strip()
+    if hub_mode == "subscribe" and hub_verify_token == expected:
+        return PlainTextResponse(content=hub_challenge, status_code=200)
+    raise HTTPException(status_code=403, detail="Verify token de Meta WhatsApp inválido.")
+
+
+@router.post("/whatsapp/meta-webhook")
+async def meta_whatsapp_webhook_receive(request: Request) -> dict[str, Any]:
+    """Recibe mensajes de WhatsApp Cloud API (Meta Developers) y responde con Doña Melva."""
+    import time
+
+    import requests
+
+    from emcali_corpus.agent_graph import get_conversational_agent
+
+    payload = await request.json()
+    access_token = os.getenv("META_WHATSAPP_ACCESS_TOKEN", "").strip()
+    default_phone_id = os.getenv("META_WHATSAPP_PHONE_NUMBER_ID", "").strip()
+    db = get_ops_db()
+    processed = 0
+
+    for entry in payload.get("entry", []):
+        for change in entry.get("changes", []):
+            value = change.get("value") or {}
+            metadata = value.get("metadata") or {}
+            phone_number_id = str(metadata.get("phone_number_id") or default_phone_id).strip()
+            for msg in value.get("messages", []):
+                if msg.get("type") != "text":
+                    continue
+                sender = str(msg.get("from", "")).strip()
+                text = str((msg.get("text") or {}).get("body", "")).strip()
+                if not sender or not text:
+                    continue
+
+                t0 = time.perf_counter()
+                phone_e164 = f"+{sender}" if sender.isdigit() else sender
+                role = db.resolve_role_by_phone(phone_e164)
+                agent = get_conversational_agent()
+                turn = agent.invoke_turn(
+                    text,
+                    thread_id=f"meta-wa-{sender}",
+                    user_id=phone_e164,
+                    user_role=role,
+                    use_llm=True,
+                )
+                latency_ms = int((time.perf_counter() - t0) * 1000)
+                turn_dict = turn.to_dict()
+                router_choice = str((turn_dict.get("router") or {}).get("choice", ""))
+                tools_used = [
+                    str(r.get("tool", r.get("name", "")))
+                    for r in (turn_dict.get("structured_reports") or [])
+                    if isinstance(r, dict)
+                ]
+                db.log_interaction_trace(
+                    channel="whatsapp",
+                    user_id=phone_e164,
+                    user_role=role,
+                    thread_id=f"meta-wa-{sender}",
+                    route=router_choice,
+                    tools_used=tools_used,
+                    latency_ms=latency_ms,
+                    question=text,
+                    answer=turn.answer,
+                    thinking=turn.reasoning,
+                )
+
+                if access_token and phone_number_id:
+                    with contextlib.suppress(requests.RequestException):
+                        requests.post(
+                            f"https://graph.facebook.com/v21.0/{phone_number_id}/messages",
+                            headers={
+                                "Authorization": f"Bearer {access_token}",
+                                "Content-Type": "application/json",
+                            },
+                            json={
+                                "messaging_product": "whatsapp",
+                                "to": sender,
+                                "type": "text",
+                                "text": {"body": turn.answer[:4000]},
+                            },
+                            timeout=15,
+                        )
+                processed += 1
+
+    return {"status": "ok", "processed": processed}
