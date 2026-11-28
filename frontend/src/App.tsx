@@ -233,6 +233,7 @@ export default function App() {
   const [sectionFilter, setSectionFilter] = useState<string>("");
   const [searchMode, setSearchMode] = useState<"hybrid" | "dense" | "lexical">("hybrid");
   const [useLlm, setUseLlm] = useState<boolean>(true);
+  const [archSubTab, setArchSubTab] = useState<"map" | "overview">("map");
 
   const [question, setQuestion] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1940,16 +1941,73 @@ export default function App() {
           {/* VISTA 4: ARQUITECTURA DESACOPLADA Y DATOS ESTRUCTURADOS CSV/JSON */}
           {activeSection === "arch" && (
             <div className="space-y-6">
-          <div>
-            <div className="text-xs font-semibold text-[#477D1C]">
-              Ingeniería de Plataforma · React 19 + FastAPI + LangGraph + Qdrant
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="text-xs font-semibold text-[#477D1C]">
+                Ingeniería de Plataforma · React 19 + FastAPI + LangGraph + OpenClaw + Qdrant E5-small
+              </div>
+              <div className="w-10 h-0.5 bg-[#579624] rounded-full my-1.5" />
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#141B12]">
+                Arquitectura y Datos Estructurados
+              </h2>
             </div>
-            <div className="w-10 h-0.5 bg-[#579624] rounded-full my-1.5" />
-            <h2 className="text-2xl font-extrabold tracking-tight text-[#141B12]">
-              Arquitectura y Datos Estructurados
-            </h2>
+
+            <div className="inline-flex rounded-2xl bg-white border border-[#DDE5D7] p-1 shadow-[0_2px_10px_rgba(20,27,18,0.04)]">
+              <button
+                type="button"
+                onClick={() => setArchSubTab("map")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-colors cursor-pointer ${
+                  archSubTab === "map"
+                    ? "bg-[#579624] text-white shadow-xs"
+                    : "text-[#3B4938] hover:bg-[#F3F6F1]"
+                }`}
+              >
+                🗺️ Mapa Interactivo (Archify)
+              </button>
+              <button
+                type="button"
+                onClick={() => setArchSubTab("overview")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-colors cursor-pointer ${
+                  archSubTab === "overview"
+                    ? "bg-[#579624] text-white shadow-xs"
+                    : "text-[#3B4938] hover:bg-[#F3F6F1]"
+                }`}
+              >
+                📐 Capas y Datos Estructurados
+              </button>
+            </div>
           </div>
 
+          {archSubTab === "map" && (
+            <div className="rounded-2xl bg-white border border-[#DDE5D7] shadow-[0_2px_12px_rgba(20,27,18,0.05)] overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-[#E7EDE3] flex flex-wrap items-center justify-between gap-3 bg-[#FAFDF8]">
+                <div>
+                  <div className="text-sm font-extrabold text-[#141B12]">
+                    Mapa Interactivo de Arquitectura — EMCALI Doña Melva (M1 · M2 · M3)
+                  </div>
+                  <div className="text-xs text-[#556252]">
+                    Diagrama Archify sin Mermaid · 9 componentes conectados · haz clic en cualquier nodo para inspeccionar flujos
+                  </div>
+                </div>
+                <a
+                  href="/arquitectura.html"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EEF6E6] hover:bg-[#E1F0D3] text-[#2D5211] border border-[#CFE4BA] text-xs font-bold transition-colors"
+                >
+                  Abrir en pantalla completa ↗
+                </a>
+              </div>
+              <iframe
+                src="/arquitectura.html"
+                title="Mapa Interactivo de Arquitectura Archify — EMCALI Doña Melva"
+                className="w-full h-[840px] border-0 bg-[#F3F6F1]"
+              />
+            </div>
+          )}
+
+          {archSubTab === "overview" && (
+            <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-5 rounded-2xl bg-white border border-[#DDE5D7] shadow-[0_2px_12px_rgba(20,27,18,0.05)]">
               <div className="flex items-center gap-2 text-[#477D1C] font-extrabold text-sm mb-2">
@@ -2025,6 +2083,8 @@ export default function App() {
               </table>
             </div>
           </div>
+            </>
+          )}
             </div>
           )}
         </main>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Archify — Arquitectura Interactiva EMCALI Melva (M1 · M2 · M3)</title>
+    <title>Archify — Arquitectura Interactiva EMCALI Doña Melva (M1 · M2 · M3)</title>
     <style>
       :root {
         --bg: #f3f6f1;
@@ -14,7 +14,8 @@
         --green: #579624;
         --green-soft: #eef6e6;
         --orange: #f5820d;
-        --yellow: #facc15;
+        --blue: #0ea5e9;
+        --purple: #8b5cf6;
       }
       * { box-sizing: border-box; }
       body {
@@ -26,30 +27,30 @@
       }
       header {
         background: var(--surface);
-        border-bottom: 4px solid #dcecc9;
-        padding: 20px 28px;
+        border-bottom: 3px solid #dcecc9;
+        padding: 16px 24px;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
+        gap: 12px;
       }
       .kicker {
-        font-size: 12px;
-        font-weight: 700;
+        font-size: 11px;
+        font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--green);
       }
-      h1 { margin: 4px 0 0; font-size: 22px; font-weight: 800; }
-      .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+      h1 { margin: 2px 0 0; font-size: 19px; font-weight: 800; }
+      .pills { display: flex; flex-wrap: wrap; gap: 6px; }
       .pill {
         border: 1.5px solid var(--border);
         background: var(--surface);
         color: var(--ink);
-        padding: 6px 14px;
+        padding: 5px 12px;
         border-radius: 999px;
-        font-size: 12px;
+        font-size: 11.5px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.15s ease;
@@ -60,26 +61,71 @@
         color: #2d5211;
       }
       main {
-        max-width: 1280px;
-        margin: 24px auto;
-        padding: 0 20px 40px;
+        max-width: 1320px;
+        margin: 18px auto;
+        padding: 0 18px 32px;
         display: grid;
-        grid-template-columns: 1fr 340px;
-        gap: 20px;
+        grid-template-columns: 1fr 330px;
+        gap: 18px;
       }
-      @media (max-width: 960px) {
+      @media (max-width: 980px) {
         main { grid-template-columns: 1fr; }
+      }
+      .map-card {
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: 22px;
+        padding: 14px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 12px rgba(20, 27, 18, 0.04);
+      }
+      .map-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .map-title {
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--ink);
+      }
+      .map-hint {
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+      .svg-wrap {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 16px;
+        background: #f9fbf7;
+        border: 1px solid #e5ece0;
+      }
+      svg#archSvg {
+        display: block;
+        width: 100%;
+        min-width: 780px;
+        height: auto;
+      }
+      .svg-node {
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+      }
+      .svg-node:hover rect.node-box {
+        filter: drop-shadow(0 6px 14px rgba(87, 150, 36, 0.22));
       }
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 14px;
+        grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+        gap: 12px;
       }
       .card {
         background: var(--surface);
         border: 1.5px solid var(--border);
-        border-radius: 20px;
-        padding: 16px;
+        border-radius: 18px;
+        padding: 14px;
         cursor: pointer;
         transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
         box-shadow: 0 2px 10px rgba(20, 27, 18, 0.04);
@@ -91,24 +137,24 @@
       }
       .badge {
         display: inline-block;
-        padding: 3px 10px;
+        padding: 2.5px 9px;
         border-radius: 999px;
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 700;
         color: #fff;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
-      .card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 800; }
-      .sub { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; margin-bottom: 8px; }
-      .card p { margin: 0 0 10px; font-size: 13px; color: #2f3b2c; }
-      .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+      .card h3 { margin: 0 0 3px; font-size: 14px; font-weight: 800; }
+      .sub { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; margin-bottom: 6px; }
+      .card p { margin: 0 0 9px; font-size: 12.5px; color: #2f3b2c; }
+      .tags { display: flex; flex-wrap: wrap; gap: 5px; }
       .tag {
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 600;
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: 999px;
-        padding: 2px 9px;
+        padding: 2px 8px;
       }
       aside {
         background: var(--surface);
@@ -117,23 +163,26 @@
         padding: 18px;
         height: fit-content;
         position: sticky;
-        top: 20px;
+        top: 16px;
       }
-      aside h2 { margin: 0 0 8px; font-size: 16px; font-weight: 800; }
+      aside h2 { margin: 0 0 6px; font-size: 15.5px; font-weight: 800; }
       .edge-item {
         padding: 8px 10px;
         border-radius: 12px;
         background: var(--bg);
         border: 1px solid var(--border);
         font-size: 12px;
-        margin-bottom: 8px;
+        margin-bottom: 7px;
+        cursor: pointer;
+        transition: border-color 0.12s ease;
       }
+      .edge-item:hover { border-color: var(--green); }
       .edge-item strong { color: #2d5211; }
       footer {
         text-align: center;
-        font-size: 12px;
+        font-size: 11.5px;
         color: var(--muted);
-        padding: 12px 20px 28px;
+        padding: 8px 20px 24px;
       }
     </style>
   </head>
@@ -141,16 +190,27 @@
     <header>
       <div>
         <div class="kicker">Archify · Mapa Interactivo de Arquitectura</div>
-        <h1>EMCALI ¡Siempre Juntos! — Melva Asistente Virtual (M1 · M2 · M3)</h1>
+        <h1>EMCALI ¡Siempre Juntos! — Doña Melva (M1 · M2 · M3)</h1>
       </div>
       <div class="pills" id="layerFilters"></div>
     </header>
     <main>
-      <section class="grid" id="nodesGrid"></section>
+      <div>
+        <section class="map-card">
+          <div class="map-header">
+            <div class="map-title">Mapa Visual de Flujos y Capas (9 Nodos · 11 Conexiones)</div>
+            <div class="map-hint">Haz clic en cualquier nodo del diagrama para resaltar sus flujos e inspeccionarlo →</div>
+          </div>
+          <div class="svg-wrap">
+            <svg id="archSvg" viewBox="0 0 920 500" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+        </section>
+        <section class="grid" id="nodesGrid"></section>
+      </div>
       <aside id="inspector">
         <h2>Inspector de Componente</h2>
         <p style="font-size: 13px; color: var(--muted);">
-          Haz clic en cualquier módulo para ver sus conexiones de entrada y salida, responsabilidades y artefactos fuente.
+          Haz clic en cualquier módulo del mapa o tarjeta para ver sus conexiones de entrada y salida.
         </p>
       </aside>
     </main>
@@ -169,69 +229,96 @@
         ],
         nodes: [
           {
-            id: "web_ui", layer: "channels", title: "Portal Web React 19 (EMCALI 2026)",
+            id: "web_ui", layer: "channels", x: 30, y: 46, w: 250, h: 74,
+            title: "Portal Web React 19 (EMCALI 2026)",
+            shortTitle: "Portal Web React 19",
+            shortSub: "Mapa Cali · PQRS · Doña Melva Voz",
             subtitle: "frontend/src/App.tsx · M3OperationsSuite.tsx",
-            summary: "Mapa operativo de Cali como portada, barra lateral unificada (General, Gestión EMCALI, Académico TAAML), PQRS dedicado y drawer flotante de Melva con voz neural.",
-            tags: ["React 19", "Leaflet", "SSE", "Melva Live TTS"]
+            summary: "Mapa operativo de Cali como portada, barra lateral unificada (General, Gestión EMCALI, Académico TAAML), PQRS dedicado, Panel Gestión & Trazas y drawer flotante de Doña Melva con voz neural.",
+            tags: ["React 19", "Leaflet", "SSE", "Doña Melva TTS"]
           },
           {
-            id: "whatsapp", layer: "channels", title: "WhatsApp Business (eSIM + OpenClaw)",
+            id: "whatsapp", layer: "channels", x: 320, y: 46, w: 270, h: 74,
+            title: "WhatsApp Business (eSIM + OpenClaw)",
+            shortTitle: "WhatsApp Business + OpenClaw",
+            shortSub: "+57 323 892 3289 · dm:open · @lid",
             subtitle: "+57 323 892 3289 · openclaw-gateway.service",
-            summary: "Sesión vinculada real fuera de localhost con allowlist E.164 administrable en vivo, texto por defecto y notas de voz bajo demanda (tts-local-cli + ffmpeg).",
-            tags: ["OpenClaw 2026.9.2", "Allowlist E.164", "DeepSeek v4 Flash", "TTS On-Demand"]
+            summary: "Sesión vinculada real fuera de localhost en Azure VM con política abierta (dm:open, allow:*), soporte @lid en modo privacidad, DeepSeek v4 Flash (thinking=low) y notas de voz bajo demanda (edge-tts + ffmpeg).",
+            tags: ["OpenClaw 2026.9.2", "dm:open", "@lid Privacy", "TTS On-Demand"]
           },
           {
-            id: "caddy_fastapi", layer: "gateway", title: "Caddy Auto-HTTPS + FastAPI Backend",
+            id: "caddy_fastapi", layer: "gateway", x: 30, y: 162, w: 250, h: 74,
+            title: "Caddy Auto-HTTPS + FastAPI Backend",
+            shortTitle: "Caddy HTTPS + FastAPI",
+            shortSub: "api/main.py · api_m3.py (:8000)",
             subtitle: "api/main.py · api.py · api_m3.py (:8000)",
-            summary: "API REST + SSE en Azure VM (Ubuntu 24.04) con PBKDF2-SHA256 RBAC, chats aislados por usuario, endpoints de mapa/PQRS/fallas, síntesis neural /api/voice/tts y respuestas proactivas WhatsApp.",
+            summary: "API REST + SSE en Azure VM (Ubuntu 24.04) con PBKDF2-SHA256 RBAC, chats aislados por usuario, endpoints de mapa/PQRS/fallas, síntesis neural /api/voice/tts y respuestas proactivas por WhatsApp.",
             tags: ["FastAPI", "Caddy HTTPS", "PBKDF2 RBAC", "Azure VPS"]
           },
           {
-            id: "mcp_server", layer: "gateway", title: "Servidor MCP Propio (emcali-eder-mcp)",
+            id: "mcp_server", layer: "gateway", x: 320, y: 162, w: 270, h: 74,
+            title: "Servidor MCP Propio (emcali-eder-mcp)",
+            shortTitle: "Servidor MCP (stdio)",
+            shortSub: "mcp_server.py · 20 tools + RBAC",
             subtitle: "src/emcali_corpus/mcp_server.py",
             summary: "Expone las 20 herramientas tipadas + verificación RBAC WhatsApp por stdio hacia OpenClaw, con trazabilidad LangSmith (@traceable) y proxy loopback ante lock Qdrant.",
             tags: ["MCP 2.3.0", "stdio", "RBAC Phone Lookup", "@traceable"]
           },
           {
-            id: "router_jev", layer: "agent", title: "Router System One (Jev) + Blindaje RAG",
+            id: "router_jev", layer: "agent", x: 30, y: 278, w: 250, h: 74,
+            title: "Router System One (Jev) + Blindaje RAG",
+            shortTitle: "Router System One (Jev)",
+            shortSub: "Choice · Noul · Score · Shield",
             subtitle: "router.py · security.py · news_sync.py",
             summary: "Primitivas Choice, Noul, Score y Box con compuerta semántica coseno (off-topic), escudo contra inyección indirecta (<datos_pasivos_corpus>) y compuerta Jev Noticias → Mapa.",
             tags: ["Jev Gatekeeper", "Noul Veto", "Cosine Gate", "Injection Shield"]
           },
           {
-            id: "langgraph_tools", layer: "agent", title: "LangGraph StateGraph + 20 @tool Pydantic v2",
+            id: "langgraph_tools", layer: "agent", x: 320, y: 278, w: 270, h: 74,
+            title: "LangGraph StateGraph + 20 @tool Pydantic v2",
+            shortTitle: "LangGraph + 20 @tool",
+            shortSub: "16 ciudadanas · 4 gerencia · 4 HITL",
             subtitle: "agent_graph.py · tools_m3.py · cali_geo.py",
-            summary: "Ciclo ReAct con 16 herramientas ciudadanas y 4 de gerencia (tools.deny), 4 compuertas HITL, geolocalización estricta de Cali (80+ barrios) y cálculo exacto CSV/JSON.",
+            summary: "Ciclo ReAct con 16 herramientas ciudadanas y 4 de gerencia (tools.deny), 4 compuertas HITL, geolocalización estricta de Cali (80+ barrios) y cálculo exacto sobre CSV/JSON.",
             tags: ["LangGraph", "20 @tool", "Pydantic v2", "HITL", "DeepSeek API"]
           },
           {
-            id: "qdrant_rag", layer: "data", title: "Qdrant HNSW + BM25 (RRF) + UMAP 2D",
+            id: "qdrant_rag", layer: "data", x: 30, y: 396, w: 265, h: 76,
+            title: "Qdrant HNSW + E5-small ONNX + BM25 (RRF)",
+            shortTitle: "Qdrant + E5-small ONNX",
+            shortSub: "1,386 chunks · Recall@5=100% · UMAP",
             subtitle: "vector_store.py · umap_diagnostics.py",
-            summary: "1,386 fragmentos verificados del corpus EMCALI con fusión híbrida RRF, evaluación CI (Recall@10 >= 0.90, nDCG@10 >= 0.75) y proyección UMAP 2D interactiva.",
-            tags: ["Qdrant", "HNSW + BM25", "UMAP 0.6.0", "CI Eval Gate"]
+            summary: "1,386 fragmentos verificados con embeddings neuronales intfloat/multilingual-e5-small (FastEmbed ONNX, dim=384) + BM25 (RRF), Recall@5=100%, MRR@10=0.927, nDCG@10=0.881 y UMAP 2D.",
+            tags: ["Qdrant", "E5-small ONNX", "RRF Hybrid", "UMAP 2D"]
           },
           {
-            id: "sqlite_ops_memory", layer: "data", title: "SQLite Ops + Checkpointer + BaseStore",
+            id: "sqlite_ops_memory", layer: "data", x: 325, y: 396, w: 275, h: 76,
+            title: "SQLite Ops + Checkpointer + BaseStore",
+            shortTitle: "SQLite Ops + Memoria Dual",
+            shortSub: "SqliteSaver · BaseStore · Ops DB",
             subtitle: "ops_db.py · memory.py",
-            summary: "Persistencia operativa (IAM, PQRS, Fallas/Hotspots, Mantenimientos, Noticias en vivo, HITL, logs de chat por usuario), SqliteSaver (corto plazo) y PersistentSqliteStore (largo plazo).",
-            tags: ["SqliteSaver", "BaseStore", "emcali_ops.sqlite", "News Sync Timer"]
+            summary: "Persistencia operativa (IAM, PQRS, Fallas/Hotspots, Mantenimientos, Noticias en vivo, HITL, trazas Web+WA), SqliteSaver (corto plazo) y PersistentSqliteStore (largo plazo).",
+            tags: ["SqliteSaver", "BaseStore", "emcali_ops.sqlite", "News Timer"]
           },
           {
-            id: "langsmith", layer: "data", title: "Observabilidad LangSmith (Web + WhatsApp)",
-            subtitle: "Proyecto emcali-eder-m3",
-            summary: "Trazas unificadas de nodos LangGraph (Web) y llamadas MCP (@traceable, tags whatsapp/mcp) con latencia, tokens y auditoría de herramientas.",
-            tags: ["LangSmith", "Tracing", "Web + MCP"]
+            id: "langsmith", layer: "data", x: 630, y: 278, w: 260, h: 74,
+            title: "Observabilidad LangSmith + Panel Trazas",
+            shortTitle: "LangSmith + Panel Trazas",
+            shortSub: "emcali-eder-m3 · Web + WhatsApp",
+            subtitle: "Proyecto emcali-eder-m3 + Panel Gestión",
+            summary: "Trazas unificadas de nodos LangGraph (Web) y llamadas MCP (@traceable, tags whatsapp/mcp) más Panel Gestión & Trazas en vivo dentro del portal.",
+            tags: ["LangSmith", "Tracing", "Web + MCP", "Panel Gestión"]
           }
         ],
         edges: [
           { from: "web_ui", to: "caddy_fastapi", label: "HTTPS JSON / SSE / MP3 TTS" },
-          { from: "whatsapp", to: "mcp_server", label: "OpenClaw stdio MCP + E.164" },
+          { from: "whatsapp", to: "mcp_server", label: "OpenClaw stdio MCP + E.164 / @lid" },
           { from: "caddy_fastapi", to: "router_jev", label: "Turnos chat + RBAC token" },
           { from: "caddy_fastapi", to: "sqlite_ops_memory", label: "Mapa, PQRS, Fallas, IAM, Noticias" },
-          { from: "caddy_fastapi", to: "whatsapp", label: "Notificaciones proactivas y Allowlist" },
+          { from: "caddy_fastapi", to: "whatsapp", label: "Notificaciones proactivas y Política WA" },
           { from: "router_jev", to: "langgraph_tools", label: "Choice: m3_ops / rag / structured / direct" },
           { from: "mcp_server", to: "langgraph_tools", label: "Ejecución 20 @tool con RBAC + HITL" },
-          { from: "langgraph_tools", to: "qdrant_rag", label: "Búsqueda híbrida RRF + citas" },
+          { from: "langgraph_tools", to: "qdrant_rag", label: "Búsqueda híbrida E5-small + BM25 (RRF)" },
           { from: "langgraph_tools", to: "sqlite_ops_memory", label: "Checkpoints, Store y Ops DB" },
           { from: "langgraph_tools", to: "langsmith", label: "Trazas LangGraph Web" },
           { from: "mcp_server", to: "langsmith", label: "Trazas @traceable WhatsApp MCP" }
@@ -242,6 +329,86 @@
       const nodeMap = Object.fromEntries(ARCH.nodes.map((n) => [n.id, n]));
       let activeLayer = "all";
       let selectedId = "web_ui";
+
+      function nodeCenter(n) {
+        return { cx: n.x + n.w / 2, cy: n.y + n.h / 2 };
+      }
+
+      function renderSvgMap() {
+        const svg = document.getElementById("archSvg");
+        const bands = [
+          { id: "channels", y: 18, h: 112, label: "CAPA 1 · CANALES Y EXPERIENCIA DE USUARIO", bg: "#eef6e6", stroke: "#cfe4ba" },
+          { id: "gateway", y: 138, h: 108, label: "CAPA 2 · GATEWAY API, SEGURIDAD RBAC Y SERVIDOR MCP", bg: "#fff5eb", stroke: "#fcd9b6" },
+          { id: "agent", y: 254, h: 110, label: "CAPA 3 · ORQUESTACIÓN AGÉNTICA (JEV + LANGGRAPH + 20 TOOLS) Y OBSERVABILIDAD", bg: "#eef8ff", stroke: "#bae6fd" },
+          { id: "data", y: 372, h: 112, label: "CAPA 4 · VECTORES QDRANT (E5-SMALL ONNX) Y PERSISTENCIA SQLITE", bg: "#f5f3ff", stroke: "#ddd6fe" }
+        ];
+
+        const defs = `
+          <defs>
+            <marker id="arrow-dim" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#94a3b8" />
+            </marker>
+            <marker id="arrow-hi" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#579624" />
+            </marker>
+          </defs>
+        `;
+
+        const bandsSvg = bands.map((b) => `
+          <rect x="12" y="${b.y}" width="896" height="${b.h}" rx="14" fill="${b.bg}" stroke="${b.stroke}" stroke-width="1.2" opacity="${activeLayer === "all" || activeLayer === b.id ? 0.95 : 0.35}" />
+          <text x="24" y="${b.y + 17}" font-size="9.5" font-weight="800" fill="#475569" letter-spacing="0.06em">${b.label}</text>
+        `).join("");
+
+        const edgesSvg = ARCH.edges.map((e) => {
+          const a = nodeMap[e.from];
+          const b = nodeMap[e.to];
+          const p1 = nodeCenter(a);
+          const p2 = nodeCenter(b);
+          const isRelated = e.from === selectedId || e.to === selectedId;
+          const dx = p2.cx - p1.cx;
+          const dy = p2.cy - p1.cy;
+          let x1 = p1.cx, y1 = p1.cy, x2 = p2.cx, y2 = p2.cy;
+          if (Math.abs(dy) >= Math.abs(dx)) {
+            y1 = dy > 0 ? a.y + a.h : a.y;
+            y2 = dy > 0 ? b.y : b.y + b.h;
+          } else {
+            x1 = dx > 0 ? a.x + a.w : a.x;
+            x2 = dx > 0 ? b.x : b.x + b.w;
+          }
+          const mx = (x1 + x2) / 2;
+          const my = (y1 + y2) / 2;
+          const curve = Math.abs(dx) > 120 && Math.abs(dy) > 120 ? `M ${x1} ${y1} Q ${mx + 25} ${my} ${x2} ${y2}` : `M ${x1} ${y1} L ${x2} ${y2}`;
+          return `
+            <path d="${curve}"
+              fill="none"
+              stroke="${isRelated ? "#579624" : "#cbd5e1"}"
+              stroke-width="${isRelated ? 2.6 : 1.5}"
+              stroke-dasharray="${isRelated ? "" : "4 3"}"
+              marker-end="url(#${isRelated ? "arrow-hi" : "arrow-dim"})"
+              opacity="${isRelated ? 1 : 0.75}" />
+          `;
+        }).join("");
+
+        const nodesSvg = ARCH.nodes.map((n) => {
+          const layer = layerMap[n.layer];
+          const isSelected = n.id === selectedId;
+          const isDim = activeLayer !== "all" && n.layer !== activeLayer;
+          return `
+            <g class="svg-node" opacity="${isDim ? 0.35 : 1}" onclick="selectNode('${n.id}')">
+              <rect class="node-box" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="14"
+                fill="#ffffff"
+                stroke="${isSelected ? "#579624" : layer.color}"
+                stroke-width="${isSelected ? 3 : 1.6}" />
+              <rect x="${n.x}" y="${n.y}" width="8" height="${n.h}" rx="4" fill="${layer.color}" />
+              <text x="${n.x + 18}" y="${n.y + 28}" font-size="12.5" font-weight="800" fill="#141B12">${n.shortTitle}</text>
+              <text x="${n.x + 18}" y="${n.y + 47}" font-size="10.5" font-weight="600" fill="#556252">${n.shortSub}</text>
+              <text x="${n.x + 18}" y="${n.y + 63}" font-size="9.5" font-weight="700" fill="${layer.color}">${layer.label}</text>
+            </g>
+          `;
+        }).join("");
+
+        svg.innerHTML = defs + bandsSvg + edgesSvg + nodesSvg;
+      }
 
       function renderFilters() {
         const el = document.getElementById("layerFilters");
@@ -278,18 +445,19 @@
           <span class="badge" style="background:${layer.color}">${layer.label}</span>
           <h2>${n.title}</h2>
           <div class="sub">${n.subtitle}</div>
-          <p style="font-size:13px; color:#2f3b2c; margin-bottom:14px;">${n.summary}</p>
+          <p style="font-size:12.5px; color:#2f3b2c; margin-bottom:14px;">${n.summary}</p>
           <div style="font-size:12px; font-weight:800; margin-bottom:6px;">Flujos salientes (${outgoing.length})</div>
-          ${outgoing.length ? outgoing.map((e) => `<div class="edge-item">→ <strong>${nodeMap[e.to].title}</strong><br/>${e.label}</div>`).join("") : `<div class="edge-item">Nodo terminal de datos / observabilidad.</div>`}
+          ${outgoing.length ? outgoing.map((e) => `<div class="edge-item" onclick="selectNode('${e.to}')">→ <strong>${nodeMap[e.to].title}</strong><br/>${e.label}</div>`).join("") : `<div class="edge-item">Nodo terminal de datos / observabilidad.</div>`}
           <div style="font-size:12px; font-weight:800; margin:12px 0 6px;">Flujos entrantes (${incoming.length})</div>
-          ${incoming.length ? incoming.map((e) => `<div class="edge-item">← <strong>${nodeMap[e.from].title}</strong><br/>${e.label}</div>`).join("") : `<div class="edge-item">Punto de entrada de usuario final.</div>`}
+          ${incoming.length ? incoming.map((e) => `<div class="edge-item" onclick="selectNode('${e.from}')">← <strong>${nodeMap[e.from].title}</strong><br/>${e.label}</div>`).join("") : `<div class="edge-item">Punto de entrada de usuario final.</div>`}
         `;
       }
 
-      window.setLayer = (id) => { activeLayer = id; renderFilters(); renderNodes(); };
-      window.selectNode = (id) => { selectedId = id; renderNodes(); renderInspector(); };
+      window.setLayer = (id) => { activeLayer = id; renderFilters(); renderSvgMap(); renderNodes(); };
+      window.selectNode = (id) => { selectedId = id; renderSvgMap(); renderNodes(); renderInspector(); };
 
       renderFilters();
+      renderSvgMap();
       renderNodes();
       renderInspector();
     </script>
