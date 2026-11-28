@@ -402,6 +402,8 @@ def extract_and_persist_user_facts(
         "gerente",
         "director",
         "directora",
+        "melva",
+        "mile",
         "eder",
         "emcali",
         "nuevo",

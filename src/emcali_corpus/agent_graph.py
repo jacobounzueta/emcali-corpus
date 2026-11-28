@@ -15,6 +15,7 @@ from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     SystemMessage,
+    ToolMessage,
 )
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -42,6 +43,10 @@ from emcali_corpus.tools import (
     StructuredToolExecutionReport,
     execute_smart_structured_tools,
 )
+from emcali_corpus.tools_m3 import (
+    execute_tool_with_rbac,
+    get_tools_for_role,
+)
 from emcali_corpus.vector_store import (
     EmcaliQdrantVectorStore,
     RetrievedChunkHit,
@@ -54,6 +59,7 @@ class AgentGraphState(TypedDict):
 
     messages: Annotated[list[BaseMessage], add_messages]
     user_id: NotRequired[str]
+    user_role: NotRequired[Literal["citizen", "manager"]]
     thread_id: NotRequired[str]
     question: NotRequired[str]
     search_mode: NotRequired[Literal["hybrid", "dense", "lexical"]]
@@ -303,6 +309,32 @@ def _synthesize_deterministic_grounded_reply(state: AgentGraphState) -> str:
             "trimestrales (Tool CSV/JSON con Pydantic) o consultas mixtas."
         )
 
+    # 1b. Respuesta determinista para operaciones M3 (PQRS, fallas, noticias, mapa)
+    if choice == "m3_ops_tool":
+        if "pqr" in lowered or "queja" in lowered or "reclamo" in lowered or "petici" in lowered:
+            return (
+                "¡Con mucho gusto te ayudo a **radicar tu PQRS** directamente desde aquí! 📝\n\n"
+                "En EMCALI contamos con **dos modalidades**:\n"
+                "- **Cliente EMCALI:** con tu **número de contrato**.\n"
+                "- **No cliente:** con tu **número de cédula**.\n\n"
+                "Por favor indícame estos datos en un solo mensaje para generar tu código de "
+                "radicado (`PQRS-2026-...`):\n"
+                "1. **Tipo:** Petición, Queja, Reclamo o Sugerencia\n"
+                "2. **Servicio:** Energía, Acueducto, Alcantarillado o Telco Fibra\n"
+                "3. **Identificación:** ¿Número de **contrato** o **cédula**?\n"
+                "4. **Nombre completo y barrio en Cali**\n"
+                "5. **Descripción breve del caso**\n\n"
+                "*(También puedes radicarla o ver el mapa en tiempo real en la pestaña "
+                "**🗺️ Mapa, PQRS, UMAP & Gestión**.)*"
+            )
+        return (
+            "Puedo ayudarte en tiempo real con **PQRS (contrato o cédula)**, **reportes de "
+            "fallas georreferenciados en el mapa de Cali**, **mantenimientos activos**, "
+            "**noticias de EMCALI**, **boletín diario** y **simulación de factura**. "
+            "Indícame el barrio, servicio o los datos de tu solicitud y la ejecuto con las "
+            "herramientas oficiales."
+        )
+
     parts: list[str] = []
 
     # 2. Alerta de Blindaje RAG si hubo intento de inyección indirecta
@@ -464,6 +496,30 @@ class EmcaliConversationalAgent:
         if explicit_filter:
             decision.box.section_filter = explicit_filter
 
+        # Continuidad multi-turno M3 (alineación Web <-> WhatsApp)
+        if decision.choice == "rag_search" and not decision.box.is_security_canary_probe:
+            prev_msgs = state.get("messages", [])[:-1]
+            last_ai = next(
+                (m for m in reversed(prev_msgs) if isinstance(m, AIMessage)),
+                None,
+            )
+            if last_ai and isinstance(last_ai.content, str):
+                prev_low = last_ai.content.lower()
+                if any(
+                    k in prev_low
+                    for k in (
+                        "radicar tu pqr",
+                        "número de contrato",
+                        "reportar la falla",
+                        "radicado",
+                    )
+                ):
+                    decision.choice = "m3_ops_tool"
+                    decision.rationale = (
+                        "Continuidad multi-turno M3: el usuario responde a una solicitud "
+                        "operativa activa (PQRS/falla/mantenimiento) en el ciclo ReAct."
+                    )
+
         return {
             "route_choice": decision.choice,
             "router_decision": serialize_router_decision(decision),
@@ -566,6 +622,22 @@ class EmcaliConversationalAgent:
             },
         }
 
+    def _m3_ops_tool_node(self, state: AgentGraphState) -> dict[str, Any]:
+        """Nodo 3e: Prepara el estado para ejecución ReAct de las 20 herramientas del Módulo 3."""
+        del state
+        return {
+            "structured_reports": [],
+            "rag_citations": [],
+            "passive_context_xml": "",
+            "security_audit": {
+                "checked_chunks": 0,
+                "any_injection_detected": False,
+                "risk_level": "low",
+                "matched_rules": [],
+                "events": [],
+            },
+        }
+
     def _synthesize_node(self, state: AgentGraphState) -> dict[str, Any]:
         """Nodo 4: Sintetiza la respuesta final anclada en evidencia y actualiza el Checkpointer."""
         use_llm = bool(state.get("use_llm", True))
@@ -600,6 +672,108 @@ class EmcaliConversationalAgent:
                 "messages": [AIMessage(content=deterministic_reply)],
             }
 
+        # Ciclo ReAct con Function Calling real (20 @tool Pydantic v2 + RBAC) para Módulo 3
+        if choice == "m3_ops_tool":
+            role = state.get("user_role", "citizen")
+            uid = state.get("user_id") or "ciudadano-cali"
+            allowed_tools = get_tools_for_role(role)
+            role_desc = (
+                "20 herramientas incluyendo gestión"
+                if role == "manager"
+                else "16 herramientas ciudadanas; gestión bloqueada por RBAC"
+            )
+            m3_system = (
+                "Eres **Doña Melva**, la Asistente Conversacional Oficial de **EMCALI E.I.C.E. "
+                "E.S.P.** (alineada 100% con el canal de WhatsApp/OpenClaw en producción).\n"
+                "PERSONALIDAD: Eres la figura cálida y sociable de la *tía caleña de 55-60 años "
+                "que sabe todo en la cuadra* — conoces Cali barrio por barrio, recibes con cariño "
+                "y naturalidad (*'¡Hola, vecino!'*, *'vea pues'*, *'tranquilo que ya mismo le "
+                "averiguo'*, *'con mucho gusto'*), sin exagerar ni perder rigor profesional. "
+                "Si te hablan en inglés, mantén esa misma calidez cercana en inglés natural.\n"
+                f"Rol activo del usuario: `{role}` ({role_desc}).\n"
+                "REGLAS INQUEBRANTABLES (IDÉNTICAS EN WEB Y WHATSAPP):\n"
+                "0. **ALCANCE ESTRICTO EMCALI:** Rechaza en máximo 2 líneas cualquier tema ajeno "
+                "a EMCALI (cálculo, derivadas, código, recetas, trivia) sin dar pistas.\n"
+                "1. **FECHAS COMPLETAS:** Al reportar mantenimientos, noticias o fallas, incluye "
+                "siempre la fecha completa (`YYYY-MM-DD`) además de la hora.\n"
+                "2. **BARRIOS VERIFICADOS:** Solo opera sobre barrios/comunas reales de cobertura "
+                "EMCALI (Cali Comunas 1-22, Yumbo, Jamundí, Candelaria, Puerto Tejada). Si la tool "
+                "reporta `BARRIO_NO_RECONOCIDO`, pide al usuario verificar el barrio o la comuna.\n"
+                "3. **PQRS (`radicar_pqrs_ciudadano`):** Acepta cliente (contrato) o no cliente "
+                "(cédula). Si faltan datos, pídelos amablemente; cuando los tengas, radica y da "
+                "el código `PQRS-2026-...`.\n"
+                "4. **FALLAS (`reportar_falla_servicio`):** Registra fallas en el mapa de Cali "
+                "y actualiza los hotspots para brigadas.\n"
+                "5. **NOTICIAS, MAPA Y BOLETÍN:** Usa las herramientas de noticias 2026, "
+                "mantenimientos activos y suscripción al boletín diario OpenClaw.\n"
+                "6. **CONSULTA DE PQRS/FALLAS ABIERTAS (IAM/RBAC):**\n"
+                "   * Si el rol es `manager`, invoca `generar_resumen_ejecutivo_operaciones` "
+                "para entregar el conteo real de PQRS, fallas, hotspots y mantenimientos.\n"
+                "   * Si el rol es `citizen`, explica que el tablero global está restringido "
+                "a **Gestión EMCALI (RBAC)** y ofrece consultar sus radicados personales con "
+                "`consultar_estado_radicado` o `listar_mis_radicados`.\n"
+                "7. **CERO ALUCINACIONES:** Nunca inventes cifras, tarifas ni radicados.\n"
+                "Responde claro, conciso y con el código de radicado cuando ejecutes un registro."
+            )
+            trimmed_msgs, _ = self.memory_manager.summarizer.process(state.get("messages", []))
+            loop_msgs: list[BaseMessage] = [SystemMessage(content=m3_system), *trimmed_msgs]
+            try:
+                bound_model = chat_model.bind_tools(allowed_tools)
+                final_answer = ""
+                reasoning_text = ""
+                executed_reports: list[dict[str, Any]] = []
+                for _ in range(3):
+                    ai_resp = bound_model.invoke(loop_msgs)
+                    loop_msgs.append(ai_resp)
+                    tool_calls = getattr(ai_resp, "tool_calls", None) or []
+                    if not tool_calls:
+                        ans, reas = extract_message_parts(ai_resp)
+                        final_answer = ans.strip()
+                        reasoning_text = reas.strip()
+                        break
+                    for tc in tool_calls:
+                        t_name = str(tc.get("name", ""))
+                        t_args = dict(tc.get("args") or {})
+                        t_id = str(tc.get("id", t_name))
+                        exec_out = execute_tool_with_rbac(
+                            t_name,
+                            t_args,
+                            role=role,
+                            user_id=uid,
+                            require_hitl=False,
+                        )
+                        executed_reports.append(
+                            {
+                                "tool_name": t_name,
+                                "source_file": "data/ops/emcali_ops.sqlite",
+                                "filters_applied": t_args,
+                                "records_matched": 1 if exec_out.get("ok") else 0,
+                                "summary_metrics": {"status": str(exec_out.get("status", "error"))},
+                                "rows": [exec_out],
+                            }
+                        )
+                        loop_msgs.append(
+                            ToolMessage(
+                                content=str(exec_out),
+                                tool_call_id=t_id,
+                                name=t_name,
+                            )
+                        )
+                return {
+                    "answer": final_answer or deterministic_reply,
+                    "reasoning": reasoning_text or decision.get("rationale", ""),
+                    "model_used": resolved_settings.model,
+                    "structured_reports": executed_reports,
+                    "messages": [AIMessage(content=final_answer or deterministic_reply)],
+                }
+            except Exception:
+                return {
+                    "answer": deterministic_reply,
+                    "reasoning": decision.get("rationale", ""),
+                    "model_used": f"{resolved_settings.model} (m3-fallback)",
+                    "messages": [AIMessage(content=deterministic_reply)],
+                }
+
         memories_block = format_memories_for_prompt(state.get("retrieved_long_term_memories", []))
         structured_block = (
             f"RESULTADOS DE HERRAMIENTAS ESTRUCTURADAS (@tool CSV/JSON con Pydantic):\n"
@@ -618,10 +792,14 @@ class EmcaliConversationalAgent:
         )
 
         system_instructions = (
-            "Eres **Eder**, el Agente Conversacional Oficial de **EMCALI E.I.C.E. E.S.P.** "
-            "(también respondes por voz en el modo Eder Live).\n"
-            "Tu nombre es **Eder**: si el usuario te llama Eder o pregunta cómo te llamas, "
-            "preséntate naturalmente como **Eder**, el asistente virtual de EMCALI.\n"
+            "Eres **Doña Melva**, la Asistente Conversacional Oficial de **EMCALI E.I.C.E. "
+            "E.S.P.** (también respondes por voz en el modo Melva Live con 'Oye Doña Melva').\n"
+            "PERSONALIDAD: Eres la figura cálida y sociable de la *tía caleña de 55-60 años que "
+            "sabe todo en la cuadra* — atenta, conversadora, empática y con sabor caleño natural "
+            "(*'¡Hola, vecino!'*, *'vea pues'*, *'con mucho gusto'*, *'ya mismo le cuento'*), "
+            "sin exagerar y siempre con rigor técnico y datos verificados.\n"
+            "Tu nombre es **Doña Melva**: si el usuario te saluda o pregunta cómo te llamas, "
+            "preséntate con calidez como **Doña Melva**, tu vecina y asistente virtual de EMCALI.\n"
             "REGLAS INQUEBRANTABLES:\n"
             "1. Responde únicamente con base en los resultados de las herramientas estructuradas "
             "(CSV/JSON validados con Pydantic), los bloques `<datos_pasivos_corpus>` de Qdrant y "
@@ -679,6 +857,8 @@ class EmcaliConversationalAgent:
             return "hybrid_multi_tool"
         if choice == "direct_reply":
             return "direct_reply"
+        if choice == "m3_ops_tool":
+            return "m3_ops_tool"
         return "rag_search"
 
     def _compile_graph(self) -> Any:
@@ -689,6 +869,7 @@ class EmcaliConversationalAgent:
         builder.add_node("rag_search", self._rag_qdrant_node)
         builder.add_node("hybrid_multi_tool", self._hybrid_multi_tool_node)
         builder.add_node("direct_reply", self._direct_reply_node)
+        builder.add_node("m3_ops_tool", self._m3_ops_tool_node)
         builder.add_node("synthesize", self._synthesize_node)
 
         builder.add_edge(START, "memory_ingest")
@@ -701,12 +882,14 @@ class EmcaliConversationalAgent:
                 "rag_search": "rag_search",
                 "hybrid_multi_tool": "hybrid_multi_tool",
                 "direct_reply": "direct_reply",
+                "m3_ops_tool": "m3_ops_tool",
             },
         )
         builder.add_edge("structured_tool", "synthesize")
         builder.add_edge("rag_search", "synthesize")
         builder.add_edge("hybrid_multi_tool", "synthesize")
         builder.add_edge("direct_reply", "synthesize")
+        builder.add_edge("m3_ops_tool", "synthesize")
         builder.add_edge("synthesize", END)
 
         return builder.compile(
@@ -720,6 +903,7 @@ class EmcaliConversationalAgent:
         *,
         thread_id: str = "hilo-emcali-01",
         user_id: str = "ciudadano-cali",
+        user_role: Literal["citizen", "manager"] = "citizen",
         section_filter: str | None = None,
         search_mode: Literal["hybrid", "dense", "lexical"] = "hybrid",
         top_k: int = 6,
@@ -735,6 +919,7 @@ class EmcaliConversationalAgent:
             "question": question.strip(),
             "thread_id": thread_id,
             "user_id": user_id,
+            "user_role": user_role,
             "section_filter": section_filter,
             "search_mode": search_mode,
             "top_k": top_k,
@@ -766,6 +951,7 @@ class EmcaliConversationalAgent:
         *,
         thread_id: str = "hilo-emcali-01",
         user_id: str = "ciudadano-cali",
+        user_role: Literal["citizen", "manager"] = "citizen",
         section_filter: str | None = None,
         search_mode: Literal["hybrid", "dense", "lexical"] = "hybrid",
         top_k: int = 6,
@@ -776,6 +962,7 @@ class EmcaliConversationalAgent:
             question,
             thread_id=thread_id,
             user_id=user_id,
+            user_role=user_role,
             section_filter=section_filter,
             search_mode=search_mode,
             top_k=top_k,

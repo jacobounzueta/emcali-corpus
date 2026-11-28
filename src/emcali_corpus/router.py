@@ -2,24 +2,71 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from emcali_corpus.vector_store import compute_hash_embedding
+
+EMCALI_DOMAIN_PROTOTYPES: tuple[str, ...] = (
+    (
+        "EMCALI servicios públicos domiciliarios Cali energía eléctrica kWh "
+        "transformadores circuitos tarifas subsidios estrato"
+    ),
+    (
+        "EMCALI acueducto agua potable alcantarillado tuberías fugas presión "
+        "embalse PTAR Cañaveralejo m3"
+    ),
+    ("EMCALI telecomunicaciones telco fibra óptica internet Mbps planes soporte técnico enredos"),
+    (
+        "EMCALI atención ciudadanía PQRS petición queja reclamo sugerencia "
+        "radicado contrato cédula factura PSE línea 177"
+    ),
+    (
+        "EMCALI mantenimientos reparaciones cortes programados fallas brigadas "
+        "mapa barrios comunas Cali noticias boletín"
+    ),
+    (
+        "EMCALI transparencia normatividad Ley 1581 protección datos personales "
+        "sostenibilidad gerente Roger Mina indicadores"
+    ),
+)
+
+_PROTOTYPE_VECTORS: tuple[list[float], ...] = tuple(
+    compute_hash_embedding(proto) for proto in EMCALI_DOMAIN_PROTOTYPES
+)
+
+
+def compute_domain_relevance_score(question: str) -> float:
+    """Mide la similitud coseno [0.0, 1.0] entre la consulta y los prototipos del dominio EMCALI."""
+    q = question.strip()
+    if not q:
+        return 0.0
+    q_vec = compute_hash_embedding(q)
+    best = 0.0
+    for p_vec in _PROTOTYPE_VECTORS:
+        dot = sum(a * b for a, b in zip(q_vec, p_vec, strict=True))
+        if dot > best:
+            best = dot
+    return round(max(0.0, min(1.0, math.sqrt(max(0.0, best)))), 4)
+
 
 RouteChoice = Literal[
     "direct_reply",
     "structured_tool",
     "rag_search",
     "hybrid_multi_tool",
+    "m3_ops_tool",
 ]
 
 GREETING_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"^\s*(?:¡?hola!?|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|saludos|"
-        r"hey|oye|qu[eé]\s+tal|gracias|muchas\s+gracias|ok|listo|perfecto|eder|éder)"
+        r"hey|oye|qu[eé]\s+tal|gracias|muchas\s+gracias|ok|listo|perfecto|melva|melba|mile|eder|éder)"
         r"(?:[,.\s!¡?¿]+(?:hola|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|"
-        r"saludos|c[oó]mo\s+est[aá]s|qu[eé]\s+tal|eder|éder|emcali|asistente))*[!.?\s]*$",
+        r"saludos|c[oó]mo\s+est[aá]s|qu[eé]\s+tal|melva|melba|mile|eder|éder|emcali|asistente))*[!.?\s]*$",
         re.IGNORECASE,
     ),
 )
@@ -82,6 +129,46 @@ EMCALI_DOMAIN_ANCHORS: tuple[str, ...] = (
     "gerente",
     "transparencia",
     "sede",
+    "pqrs",
+    "radicar",
+    "queja",
+    "reclamo",
+    "falla",
+    "daño",
+    "mantenimiento",
+    "reparaci",
+    "noticia",
+    "boletín",
+    "boletin",
+    "brigada",
+    "barrio",
+)
+
+M3_OPS_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(radicar|poner|registrar|crear|interponer|presentar)\s+(?:una?\s+)?"
+        r"(pqr|pqrs|queja|reclamo|petici[oó]n|sugerencia|falla|da[nñ]o|fuga|corte)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(reportar\s+(?:una?\s+)?(?:falla|da[nñ]o|fuga|corte|aver[ií]a)|"
+        r"no\s+tengo\s+(?:agua|luz|energ[ií]a|internet|fibra)|"
+        r"estado\s+de\s+(?:mi\s+)?radicado|mis\s+radicados|pqrs-2026-|falla-2026-|"
+        r"(?:hay|hab[ií]an?|cu[aá]nt[oa]s?|ver|listar|mostrar|consultar|qu[eé])\s+"
+        r"(?:los\s+|las\s+)?(?:pqrs?|quejas|reclamos|fall[ao]s?|da[nñ]os?|"
+        r"reportes?(?:\s+de\s+fall[ao]s?)?|mantenimientos?|hotspots?)(?:\s+abiert[oa]s?)?|"
+        r"(?:pqrs?|fall[ao]s?|reportes?)\s+(?:abiert[oa]s?|de\s+fall[ao]s?|ciudadanos?)|"
+        r"reportes?\s+de\s+fall[ao]s?|fall[ao]s?\s+(?:reportad[oa]s?\s+)?en\s+|"
+        r"mantenimientos?\s+activos?|reparaciones?\s+y\s+mantenimientos?|"
+        r"cortes?\s+en\s+|afectaci[oó]n\s+en\s+|"
+        r"[uú]ltimas?\s+noticias?|noticias?\s+de\s+emcali|"
+        r"bolet[ií]n\s+diario|suscrib(?:ir|eme)\s+al\s+bolet[ií]n|"
+        r"simular\s+(?:mi\s+)?factura|activar\s+(?:un\s+)?(?:punto\s+de\s+)?mantenimiento|"
+        r"despachar\s+brigada|asignar\s+brigada|resumen\s+ejecutivo|brigadas?|"
+        r"\b(?:contrato|c[eé]dula)\s*(?::|#|\s)\s*\d{5,}|"
+        r"\b(?:queja|reclamo|petici[oó]n|sugerencia)\b.*\b(?:energ[ií]a|acueducto|alcantarillado|fibra|telco)\b)\b",
+        re.IGNORECASE,
+    ),
 )
 
 STRUCTURED_KEYWORDS: tuple[str, ...] = (
@@ -191,6 +278,12 @@ class JevBoxExtraction(BaseModel):
     is_user_memory_operation: bool = Field(default=False)
     is_out_of_scope_or_private: bool = Field(default=False)
     is_security_canary_probe: bool = Field(default=False)
+    domain_relevance_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Similitud semántica coseno entre la consulta y el propósito de EMCALI.",
+    )
 
 
 class JevRouterDecision(BaseModel):
@@ -286,8 +379,19 @@ def _extract_box(question: str) -> JevBoxExtraction:
     is_mem_intro = any(p.search(lowered) for p in SELF_MEMORY_Intro_PATTERNS) and "?" not in lowered
     is_mem_query = any(p.search(lowered) for p in SELF_MEMORY_QUERY_PATTERNS)
     has_domain_anchor = any(anchor in lowered for anchor in EMCALI_DOMAIN_ANCHORS)
-    is_out = any(p.search(lowered) for p in OUT_OF_SCOPE_PATTERNS) or (
-        bool(OFF_TOPIC_GENERAL_PATTERN.search(lowered)) and not has_domain_anchor
+    relevance_score = compute_domain_relevance_score(question)
+    is_semantic_off_topic = (
+        not is_greeting
+        and not is_mem_intro
+        and not is_mem_query
+        and not has_domain_anchor
+        and len(lowered.split()) >= 3
+        and relevance_score < 0.18
+    )
+    is_out = (
+        any(p.search(lowered) for p in OUT_OF_SCOPE_PATTERNS)
+        or (bool(OFF_TOPIC_GENERAL_PATTERN.search(lowered)) and not has_domain_anchor)
+        or is_semantic_off_topic
     )
     is_canary = any(
         k in lowered
@@ -311,6 +415,7 @@ def _extract_box(question: str) -> JevBoxExtraction:
         is_user_memory_operation=is_mem_intro or is_mem_query,
         is_out_of_scope_or_private=is_out,
         is_security_canary_probe=is_canary,
+        domain_relevance_score=relevance_score,
     )
 
 
@@ -377,6 +482,26 @@ def route_query_with_jev(question: str) -> JevRouterDecision:
                 "recuperados de Qdrant con delimitador de datos pasivos."
             ),
             tools_to_invoke=["buscar_corpus_qdrant"],
+        )
+
+    # 2b. Operaciones en tiempo real del Módulo 3 (PQRS, fallas, mapa, noticias, RBAC)
+    if any(p.search(lowered) for p in M3_OPS_PATTERNS):
+        return JevRouterDecision(
+            choice="m3_ops_tool",
+            noul_triggered=False,
+            score=0.96,
+            box=box,
+            rationale=(
+                "Jev Choice=m3_ops_tool: solicitud operativa de Módulo 3 (PQRS por contrato o "
+                "cédula, reporte de fallas, mantenimientos en mapa de Cali, noticias/boletín, "
+                "simulación de factura o gestión RBAC). Se delega al ciclo ReAct de 20 @tool."
+            ),
+            tools_to_invoke=[
+                "radicar_pqrs_ciudadano",
+                "reportar_falla_servicio",
+                "listar_mantenimientos_activos",
+                "consultar_noticias_emcali",
+            ],
         )
 
     struct_hits = sum(1 for kw in STRUCTURED_KEYWORDS if kw in lowered)

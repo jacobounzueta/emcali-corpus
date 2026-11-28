@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Iterator
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -18,11 +19,14 @@ from emcali_corpus.agent_graph import (
     EmcaliConversationalAgent,
     get_conversational_agent,
 )
+from emcali_corpus.api_m3 import _resolve_role_and_user
+from emcali_corpus.api_m3 import router as m3_ops_router
 from emcali_corpus.knowledge import SECTION_LABELS
 from emcali_corpus.memory import (
     search_user_long_term_memories,
     utc_iso,
 )
+from emcali_corpus.ops_db import get_ops_db
 from emcali_corpus.retrieval_eval import run_full_retrieval_benchmark
 from emcali_corpus.tools import (
     query_indicadores_structured,
@@ -32,6 +36,8 @@ from emcali_corpus.voice import (
     build_tts_speech_summary,
     describe_voice_capabilities,
     parse_voice_hotword_command,
+    stream_edge_tts_chunks,
+    synthesize_neural_tts,
 )
 
 SERVER_STARTED_AT = utc_iso()
@@ -60,20 +66,29 @@ class ChatRequest(BaseModel):
 
 
 class VoiceCommandRequest(BaseModel):
-    """Petición de comando por voz con soporte de hotword ('Eder', 'Oye Eder', 'Hola Eder')."""
+    """Petición de comando por voz con hotword ('Doña Melva' / 'Oye Doña Melva')."""
 
     transcript: str = Field(min_length=1, description="Transcripción capturada del micrófono.")
     require_hotword: bool = Field(
         default=False,
-        description="Si True, exige que la frase empiece con 'Eder', 'Oye Eder' o 'Hola Eder'.",
+        description=(
+            "Si True, exige que la frase empiece con 'Doña Melva', 'Oye Doña Melva' "
+            "o 'Hola Doña Melva'."
+        ),
     )
     live_session_active: bool = Field(
         default=False,
-        description="True cuando Eder Live ya fue activado y escucha turnos continuos.",
+        description="True cuando Melva Live ya fue activado y escucha turnos continuos.",
     )
     thread_id: str = Field(default="hilo-demo-m2")
     user_id: str = Field(default="ana-carvajal")
     use_llm: bool = Field(default=True)
+
+
+class VoiceTtsRequest(BaseModel):
+    """Petición de síntesis de voz neural colombiana para Melva (ElevenLabs / Edge TTS)."""
+
+    text: str = Field(min_length=1, max_length=2500)
 
 
 class MemoryUpsertRequest(BaseModel):
@@ -199,10 +214,12 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         version=__version__,
     )
 
+    cors_origins_env = os.getenv("EMCALI_CORS_ORIGINS", "*").strip()
+    cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()] or ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=cors_origins,
+        allow_credentials=cors_origins != ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -230,12 +247,19 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
             },
             "router": {
                 "engine": "System One Gatekeeper (Jev: Choice, Noul, Score, Box)",
-                "routes": ["direct_reply", "structured_tool", "rag_search", "hybrid_multi_tool"],
+                "routes": [
+                    "direct_reply",
+                    "structured_tool",
+                    "rag_search",
+                    "hybrid_multi_tool",
+                    "m3_ops_tool",
+                ],
             },
             "langsmith": {
                 "tracing_enabled": langsmith_enabled,
-                "project": os.getenv("LANGSMITH_PROJECT", "emcali-agente-modulo2"),
+                "project": os.getenv("LANGSMITH_PROJECT", "emcali-eder-m3"),
             },
+            "tools_catalog_count": 20,
             "voice": describe_voice_capabilities(),
             "sections": [
                 {"key": key, "label": label} for key, label in sorted(SECTION_LABELS.items())
@@ -246,13 +270,39 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
     def get_validation_presets() -> dict[str, Any]:
         return {"cases": list(DEMO_VALIDATION_CASES)}
 
+    @app.get("/api/chat/history")
+    def get_personal_chat_history(
+        user_id: str = Query(default="", description="ID anónimo si no hay sesión iniciada."),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        role, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else (user_id.strip() or username)
+        items = get_ops_db().get_user_chat_log(owner)
+        return {"owner_id": owner, "role": role, "count": len(items), "messages": items}
+
+    @app.delete("/api/chat/history")
+    def clear_personal_chat_history(
+        user_id: str = Query(default=""),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        _, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else (user_id.strip() or username)
+        deleted = get_ops_db().clear_user_chat_log(owner)
+        return {"owner_id": owner, "deleted": deleted}
+
     @app.post("/api/chat")
-    def chat_turn(payload: ChatRequest) -> dict[str, Any]:
+    def chat_turn(
+        payload: ChatRequest,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        role, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else payload.user_id
         try:
             turn = _agent().invoke_turn(
                 payload.question,
                 thread_id=payload.thread_id,
-                user_id=payload.user_id,
+                user_id=owner,
+                user_role=role,
                 section_filter=payload.section_filter,
                 search_mode=payload.search_mode,
                 top_k=payload.top_k,
@@ -261,21 +311,40 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+        ops_db = get_ops_db()
+        ops_db.append_chat_message(
+            owner_id=owner, thread_id=payload.thread_id, role="user", content=payload.question
+        )
+        ops_db.append_chat_message(
+            owner_id=owner, thread_id=payload.thread_id, role="assistant", content=turn.answer
+        )
+
         result = turn.to_dict()
         result["tts_speech_text"] = build_tts_speech_summary(turn.answer)
         result["server_pid"] = SERVER_PID
         return result
 
     @app.post("/api/chat/stream")
-    def chat_stream(payload: ChatRequest) -> StreamingResponse:
+    def chat_stream(
+        payload: ChatRequest,
+        authorization: str | None = Header(default=None),
+    ) -> StreamingResponse:
         if not payload.question.strip():
             raise HTTPException(status_code=400, detail="La consulta no puede estar vacía.")
+        role, username = _resolve_role_and_user(authorization)
+        owner = username if username != "ciudadano-publico" else payload.user_id
 
         def _event_generator() -> Iterator[str]:
+            t_start = time.perf_counter()
+            ops_db = get_ops_db()
+            ops_db.append_chat_message(
+                owner_id=owner, thread_id=payload.thread_id, role="user", content=payload.question
+            )
             for packet in _agent().stream_turn_events(
                 payload.question,
                 thread_id=payload.thread_id,
-                user_id=payload.user_id,
+                user_id=owner,
+                user_role=role,
                 section_filter=payload.section_filter,
                 search_mode=payload.search_mode,
                 top_k=payload.top_k,
@@ -284,11 +353,66 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 ev_type = packet["event"]
                 data = packet["data"]
                 if ev_type == "done":
-                    data["tts_speech_text"] = build_tts_speech_summary(str(data.get("answer", "")))
+                    ans_text = str(data.get("answer", ""))
+                    latency_ms = int((time.perf_counter() - t_start) * 1000)
+                    router_choice = str((data.get("router") or {}).get("choice", ""))
+                    tools_used = [
+                        str(t.get("tool", t.get("name", "")))
+                        for t in (data.get("structured_reports") or [])
+                        if isinstance(t, dict)
+                    ]
+                    ops_db.append_chat_message(
+                        owner_id=owner,
+                        thread_id=payload.thread_id,
+                        role="assistant",
+                        content=ans_text,
+                    )
+                    ops_db.log_interaction_trace(
+                        channel="web",
+                        user_id=owner,
+                        user_role=role,
+                        thread_id=payload.thread_id,
+                        route=router_choice,
+                        tools_used=tools_used,
+                        latency_ms=latency_ms,
+                        question=payload.question,
+                        answer=ans_text,
+                        thinking=str(data.get("reasoning", "")),
+                    )
+                    data["tts_speech_text"] = build_tts_speech_summary(ans_text)
                     data["server_pid"] = SERVER_PID
                 yield f"event: {ev_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(_event_generator(), media_type="text/event-stream")
+
+    @app.get("/api/voice/tts/stream")
+    async def stream_voice_tts(text: str = Query(min_length=1, max_length=2500)) -> Response:
+        if os.getenv("ELEVENLABS_API_KEY", "").strip():
+            audio_bytes, media_type, provider = synthesize_neural_tts(text, max_chars=260)
+            return Response(
+                content=audio_bytes,
+                media_type=media_type,
+                headers={"X-TTS-Provider": provider, "Cache-Control": "no-store"},
+            )
+        return StreamingResponse(
+            stream_edge_tts_chunks(text, max_chars=260),
+            media_type="audio/mpeg",
+            headers={"X-TTS-Provider": "edge-tts:stream", "Cache-Control": "no-store"},
+        )
+
+    @app.post("/api/voice/tts")
+    def synthesize_voice_tts(payload: VoiceTtsRequest) -> Response:
+        try:
+            audio_bytes, media_type, provider = synthesize_neural_tts(payload.text)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"TTS no disponible: {exc}") from exc
+        return Response(
+            content=audio_bytes,
+            media_type=media_type,
+            headers={"X-TTS-Provider": provider, "Cache-Control": "no-store"},
+        )
 
     @app.post("/api/voice/command")
     def process_voice_command(payload: VoiceCommandRequest) -> dict[str, Any]:
@@ -304,7 +428,7 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 "turn": None,
                 "live_session_active": False,
                 "tts_speech_text": (
-                    "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Eder."
+                    "Con gusto. Paso a modo de espera; cuando me necesites solo di Oye Doña Melva."
                 ),
             }
 
@@ -313,12 +437,14 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 "accepted": False,
                 "voice_analysis": analysis.model_dump(),
                 "live_session_active": payload.live_session_active,
-                "message": "No se detectó el hotword ('Eder', 'Oye Eder' o 'Hola Eder').",
+                "message": (
+                    "No se detectó el hotword ('Doña Melva', 'Oye Doña Melva' o 'Hola Doña Melva')."
+                ),
             }
 
         if analysis.wake_only:
             wake_reply = (
-                "¡Eder Live activado! Hotword **'Oye Eder'** detectado. A partir de ahora "
+                "¡Melva Live activado! Hotword **'Oye Doña Melva'** detectado. A partir de ahora "
                 "te escucho en vivo de forma continua sin necesidad de repetir el hotword."
             )
             return {
@@ -327,7 +453,7 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
                 "turn": None,
                 "live_session_active": True,
                 "tts_speech_text": (
-                    "¡Hola! Soy Eder Live. Te escucho en vivo, dime qué necesitas de EMCALI."
+                    "¡Hola! Soy Melva Live. Te escucho en vivo, dime qué necesitas de EMCALI."
                 ),
                 "wake_greeting": wake_reply,
             }
@@ -431,6 +557,8 @@ def create_fastapi_app(agent: EmcaliConversationalAgent | None = None) -> FastAP
         if _CACHED_RETRIEVAL_EVAL is None or refresh:
             _CACHED_RETRIEVAL_EVAL = run_full_retrieval_benchmark(_agent().vector_store)
         return _CACHED_RETRIEVAL_EVAL
+
+    app.include_router(m3_ops_router)
 
     frontend_dist = config.PROJECT_ROOT / "frontend" / "dist"
     if frontend_dist.is_dir():
