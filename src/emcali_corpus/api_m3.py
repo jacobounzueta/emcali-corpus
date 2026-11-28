@@ -155,8 +155,40 @@ def _reload_openclaw_whatsapp_sync() -> bool:
 
 
 def _send_whatsapp_notifications_async(phones: list[str], message: str) -> int:
-    """Envía notificaciones proactivas por WhatsApp vía OpenClaw sin bloquear el API."""
+    """Envía notificaciones proactivas por WhatsApp (Meta Cloud API si está activa, o OpenClaw)."""
     sent = 0
+    meta_token = os.getenv("META_WHATSAPP_ACCESS_TOKEN", "").strip()
+    meta_phone_id = os.getenv("META_WHATSAPP_PHONE_NUMBER_ID", "").strip()
+    if meta_token and meta_phone_id:
+        import threading
+
+        import requests
+
+        def _send_meta(target_digits: str) -> None:
+            with contextlib.suppress(requests.RequestException):
+                requests.post(
+                    f"https://graph.facebook.com/v21.0/{meta_phone_id}/messages",
+                    headers={
+                        "Authorization": f"Bearer {meta_token}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "messaging_product": "whatsapp",
+                        "to": target_digits,
+                        "type": "text",
+                        "text": {"body": message[:4000]},
+                    },
+                    timeout=15,
+                )
+
+        for phone in phones:
+            digits = "".join(ch for ch in phone if ch.isdigit())
+            if len(digits) < 8:
+                continue
+            threading.Thread(target=_send_meta, args=(digits,), daemon=True).start()
+            sent += 1
+        return sent
+
     env = _openclaw_env()
     for phone in phones:
         clean = phone.strip()
