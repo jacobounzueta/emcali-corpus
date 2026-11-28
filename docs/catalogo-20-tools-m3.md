@@ -86,7 +86,7 @@ de EMCALI.
   - `servicio` (`string`, requerido): Servicio público a simular.
   - `estrato` (`integer`, requerido): Estrato (1-6) o 0 para Comercial/Industrial.
   - `consumo_mes` (`number`, requerido): Consumo mensual estimado en kWh (energía), m3 (acueducto/alcantarillado) o 1 fibra.
-  - `trimestre` (`string`, opcional, default='2026-Q3'): 
+  - `trimestre` (`string`, opcional, default='2026-Q3'):
 
 ### 4. `comparar_tarifas_trimestres`
 
@@ -103,16 +103,16 @@ de EMCALI.
 - **Parámetros Pydantic v2:**
   - `palabra_clave` (`string`, opcional, default=''): Tema, barrio o palabra clave a buscar.
   - `solo_mantenimientos` (`boolean`, opcional, default=False): Si True, filtra únicamente noticias de reparaciones y mantenimientos.
-  - `limite` (`integer`, opcional, default=6): 
+  - `limite` (`integer`, opcional, default=6):
 
 ### 6. `listar_mantenimientos_activos`
 
 - **Categoría:** `general` | **Rol:** `citizen` | **HITL:** `No`
 - **Propósito:** Lista los puntos de mantenimiento y reparación georreferenciados en Cali.
 - **Parámetros Pydantic v2:**
-  - `servicio` (`string`, opcional, default='todos'): 
+  - `servicio` (`string`, opcional, default='todos'):
   - `barrio` (`string`, opcional, default=''): Filtro opcional por barrio de Cali.
-  - `solo_activos` (`boolean`, opcional, default=True): 
+  - `solo_activos` (`boolean`, opcional, default=True):
 
 ### 7. `consultar_afectacion_por_barrio`
 
@@ -127,10 +127,10 @@ de EMCALI.
 - **Propósito:** Suscribe al ciudadano al boletín diario de noticias y mantenimientos de OpenClaw.
 - **Parámetros Pydantic v2:**
   - `contacto` (`string`, requerido): Número de WhatsApp en formato E.164 (ej. +573001234567) o correo/usuario.
-  - `canal` (`string`, opcional, default='whatsapp'): 
+  - `canal` (`string`, opcional, default='whatsapp'):
   - `nombre` (`string`, opcional, default=''): Nombre del ciudadano suscriptor.
   - `barrio_interes` (`string`, opcional, default='Todos'): Barrio prioritario para alertas.
-  - `frecuencia` (`string`, opcional, default='diaria'): 
+  - `frecuencia` (`string`, opcional, default='diaria'):
 
 ### 9. `radicar_pqrs_ciudadano`
 
@@ -138,27 +138,27 @@ de EMCALI.
 - **Propósito:** Radica una PQRS oficial de EMCALI (contrato para clientes o cédula para no clientes).
 - **Parámetros Pydantic v2:**
   - `tipo` (`string`, requerido): Petición, Queja, Reclamo o Sugerencia.
-  - `servicio` (`string`, requerido): 
+  - `servicio` (`string`, requerido):
   - `identificador_tipo` (`string`, requerido): 'contrato' (cliente EMCALI) o 'cedula' (no cliente).
-  - `identificador_valor` (`string`, requerido): 
-  - `nombre_ciudadano` (`string`, requerido): 
-  - `barrio` (`string`, requerido): 
-  - `descripcion` (`string`, requerido): 
-  - `telefono_e164` (`string`, opcional, default=''): 
+  - `identificador_valor` (`string`, requerido):
+  - `nombre_ciudadano` (`string`, requerido):
+  - `barrio` (`string`, requerido):
+  - `descripcion` (`string`, requerido):
+  - `telefono_e164` (`string`, opcional, default=''):
 
 ### 10. `reportar_falla_servicio`
 
 - **Categoría:** `general` | **Rol:** `citizen` | **HITL:** `No`
 - **Propósito:** Registra una falla de servicio en Cali y actualiza las banderas de hotspots para brigadas.
 - **Parámetros Pydantic v2:**
-  - `servicio` (`string`, requerido): 
+  - `servicio` (`string`, requerido):
   - `identificador_tipo` (`string`, requerido): 'contrato' (cliente EMCALI) o 'cedula' (no cliente).
-  - `identificador_valor` (`string`, requerido): 
-  - `nombre_ciudadano` (`string`, opcional, default='Ciudadano EMCALI'): 
-  - `barrio` (`string`, requerido): 
-  - `direccion` (`string`, opcional, default=''): 
-  - `descripcion` (`string`, requerido): 
-  - `telefono_e164` (`string`, opcional, default=''): 
+  - `identificador_valor` (`string`, requerido):
+  - `nombre_ciudadano` (`string`, opcional, default='Ciudadano EMCALI'):
+  - `barrio` (`string`, requerido):
+  - `direccion` (`string`, opcional, default=''):
+  - `descripcion` (`string`, requerido):
+  - `telefono_e164` (`string`, opcional, default=''):
 
 ### 11. `consultar_estado_radicado`
 
@@ -189,14 +189,14 @@ de EMCALI.
 - **Categoría:** `general` | **Rol:** `citizen` | **HITL:** `No`
 - **Propósito:** Devuelve los canales oficiales de atención presencial, telefónica y digital de EMCALI.
 - **Parámetros Pydantic v2:**
-  - `tipo_tramite` (`string`, opcional, default='todos'): 
+  - `tipo_tramite` (`string`, opcional, default='todos'):
 
 ### 15. `guardar_preferencia_usuario`
 
 - **Categoría:** `general` | **Rol:** `citizen` | **HITL:** `No`
 - **Propósito:** Guarda un dato del perfil del usuario en el Store persistente de largo plazo.
 - **Parámetros Pydantic v2:**
-  - `user_id` (`string`, opcional, default='ciudadano-cali'): 
+  - `user_id` (`string`, opcional, default='ciudadano-cali'):
   - `clave` (`string`, requerido): Ej. ubicacion_barrio, estrato_vivienda, nombre.
   - `etiqueta` (`string`, requerido): Etiqueta legible del dato.
   - `valor` (`string`, requerido): Valor a recordar en memoria de largo plazo.
@@ -206,21 +206,21 @@ de EMCALI.
 - **Categoría:** `general` | **Rol:** `citizen` | **HITL:** `No`
 - **Propósito:** Lee de forma auditable las preferencias y perfil almacenado del usuario.
 - **Parámetros Pydantic v2:**
-  - `user_id` (`string`, opcional, default='ciudadano-cali'): 
-  - `consulta` (`string`, opcional, default=''): 
+  - `user_id` (`string`, opcional, default='ciudadano-cali'):
+  - `consulta` (`string`, opcional, default=''):
 
 ### 17. `activar_punto_mantenimiento`
 
 - **Categoría:** `general` | **Rol:** `manager` | **HITL:** `Sí`
 - **Propósito:** [SOLO GESTIÓN EMCALI] Activa un punto de mantenimiento en vivo sobre el mapa de Cali.
 - **Parámetros Pydantic v2:**
-  - `titulo` (`string`, requerido): 
-  - `servicio` (`string`, requerido): 
-  - `barrio` (`string`, requerido): 
-  - `descripcion` (`string`, requerido): 
-  - `brigada_asignada` (`string`, opcional, default='Brigada Operativa EMCALI'): 
-  - `inicio_estimado` (`string`, opcional, default=''): 
-  - `fin_estimado` (`string`, opcional, default=''): 
+  - `titulo` (`string`, requerido):
+  - `servicio` (`string`, requerido):
+  - `barrio` (`string`, requerido):
+  - `descripcion` (`string`, requerido):
+  - `brigada_asignada` (`string`, opcional, default='Brigada Operativa EMCALI'):
+  - `inicio_estimado` (`string`, opcional, default=''):
+  - `fin_estimado` (`string`, opcional, default=''):
 
 ### 18. `asignar_brigada_reparacion`
 
@@ -228,18 +228,18 @@ de EMCALI.
 - **Propósito:** [SOLO GESTIÓN EMCALI] Despacha una brigada a un hotspot de fallas y lo activa en el mapa.
 - **Parámetros Pydantic v2:**
   - `barrio` (`string`, requerido): Barrio con reportes de falla acumulados.
-  - `servicio` (`string`, requerido): 
+  - `servicio` (`string`, requerido):
   - `brigada_asignada` (`string`, requerido): Nombre o código de la cuadrilla/brigada despachada.
-  - `notas` (`string`, opcional, default=''): 
+  - `notas` (`string`, opcional, default=''):
 
 ### 19. `gestionar_estado_pqrs`
 
 - **Categoría:** `general` | **Rol:** `manager` | **HITL:** `Sí`
 - **Propósito:** [SOLO GESTIÓN EMCALI] Actualiza el estado operativo de un radicado PQRS.
 - **Parámetros Pydantic v2:**
-  - `radicado_id` (`string`, requerido): 
-  - `nuevo_estado` (`string`, requerido): 
-  - `notas_gestion` (`string`, opcional, default=''): 
+  - `radicado_id` (`string`, requerido):
+  - `nuevo_estado` (`string`, requerido):
+  - `notas_gestion` (`string`, opcional, default=''):
 
 ### 20. `generar_resumen_ejecutivo_operaciones`
 
@@ -247,4 +247,4 @@ de EMCALI.
 - **Propósito:** [SOLO GESTIÓN EMCALI] Genera KPIs en vivo de PQRS, fallas, hotspots y mantenimientos.
 - **Parámetros Pydantic v2:**
   - `sincronizar_noticias` (`boolean`, opcional, default=False): Si True, ejecuta sincronización de noticias y mantenimientos antes del reporte.
-  - `incluir_boletin` (`boolean`, opcional, default=False): 
+  - `incluir_boletin` (`boolean`, opcional, default=False):

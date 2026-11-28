@@ -12,9 +12,9 @@
     "defaults": {
       "workspace": "/home/rommel/emcali-corpus/openclaw/workspace",
       "model": {
-        "primary": "deepseek/deepseek-v4-pro",
+        "primary": "deepseek/deepseek-v4-flash",
         "fallbacks": [
-          "deepseek/deepseek-v4-flash"
+          "deepseek/deepseek-v4-pro"
         ]
       },
       "heartbeat": {
